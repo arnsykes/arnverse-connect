@@ -1,7 +1,5 @@
-# ===================================================================
 # ARNVERSE SPA Routing Configuration untuk cPanel/LiteSpeed
 # File ini harus ditempatkan di: /public_html/arnworld.space/.htaccess
-# ===================================================================
 
 # Disable MultiViews untuk menghindari konflik dengan SPA routing
 Options -MultiViews
