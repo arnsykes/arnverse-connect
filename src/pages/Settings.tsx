@@ -21,7 +21,7 @@ export default function Settings() {
   
   // Profile form state
   const [profileData, setProfileData] = useState({
-    displayName: user?.displayName || "",
+    displayName: user?.display_name || "",
     bio: user?.bio || "",
     avatar: user?.avatar || ""
   });
@@ -155,7 +155,7 @@ export default function Settings() {
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
                 <AvatarImage src={profileData.avatar} />
-                <AvatarFallback>{user.displayName?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{user.display_name?.slice(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <Button variant="outline" type="button">
                 <Camera className="mr-2 h-4 w-4" />

@@ -3,8 +3,8 @@
 
 import type { Post } from '@/hooks/useFeed';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://your-domain.com/api';
-const MEDIA_BASE_URL = process.env.NEXT_PUBLIC_MEDIA_BASE_URL || 'https://your-domain.com/uploads';
+const API_BASE_URL = '/api';
+const MEDIA_BASE_URL = '/uploads';
 
 // API Response interface
 interface ApiResponse<T = any> {
@@ -18,24 +18,38 @@ interface ApiResponse<T = any> {
   };
 }
 
+// Get token from localStorage
+const getToken = () => localStorage.getItem('arn_token');
+
 // Enhanced fetch wrapper with error handling and auth
 async function apiRequest<T>(
   endpoint: string, 
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
+    const token = getToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      credentials: 'include', // Include cookies for PHP session
-      headers: {
-        'Content-Type': 'application/json',
-        // Add CSRF token if needed
-        // 'X-CSRF-Token': getCsrfToken(),
-        ...options.headers,
-      },
+      headers,
       ...options,
     });
 
     const data = await response.json();
+    
+    // Handle 401 globally - trigger logout
+    if (response.status === 401) {
+      localStorage.removeItem('arn_token');
+      window.location.href = '/login';
+      return { ok: false, error: 'UNAUTHORIZED' };
+    }
     
     if (!response.ok) {
       throw new Error(data.error || `HTTP ${response.status}`);
@@ -57,13 +71,27 @@ async function uploadRequest<T>(
   formData: FormData
 ): Promise<ApiResponse<T>> {
   try {
+    const token = getToken();
+    const headers: HeadersInit = {};
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
-      credentials: 'include',
+      headers,
       body: formData, // Don't set Content-Type for FormData
     });
 
     const data = await response.json();
+    
+    // Handle 401 globally
+    if (response.status === 401) {
+      localStorage.removeItem('arn_token');
+      window.location.href = '/login';
+      return { ok: false, error: 'UNAUTHORIZED' };
+    }
     
     if (!response.ok) {
       throw new Error(data.error || `HTTP ${response.status}`);
@@ -82,14 +110,15 @@ async function uploadRequest<T>(
 // Authentication API
 export const authApi = {
   me: () => apiRequest('/auth.php'),
-  login: (credentials: { username: string; password: string }) =>
+  login: (credentials: { email: string; password: string }) =>
     apiRequest('/login.php', {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(credentials).toString(),
     }),
-  register: (userData: { username: string; email: string; password: string; displayName: string }) =>
+  register: (userData: { username: string; email: string; password: string }) =>
     apiRequest('/register.php', {
-      method: 'POST', 
+      method: 'POST',
       body: JSON.stringify(userData),
     }),
   logout: () => apiRequest('/logout.php', { method: 'POST' }),
@@ -97,9 +126,9 @@ export const authApi = {
 
 // Posts API
 export const postsApi = {
-  getFeed: (page = 1, limit = 20) => 
-    apiRequest<{ posts: Post[]; total: number; hasMore: boolean }>(`/feed.php?page=${page}&limit=${limit}`),
-  upload: (formData: FormData) => uploadRequest('/upload_post.php', formData),
+  getFeed: (cursor?: string, limit = 20) => 
+    apiRequest<{ items: Post[]; nextCursor?: string }>(`/feed.php?${cursor ? `cursor=${cursor}&` : ''}limit=${limit}`),
+  upload: (formData: FormData) => uploadRequest('/post.php', formData),
   edit: (postId: string, data: { content?: string; media?: string[] }) =>
     apiRequest(`/edit_post.php`, {
       method: 'PATCH',

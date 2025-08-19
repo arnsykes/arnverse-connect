@@ -26,9 +26,8 @@ export interface Post {
 }
 
 interface FeedResponse {
-  posts: Post[];
-  total: number;
-  hasMore: boolean;
+  items: Post[];
+  nextCursor?: string;
 }
 
 export function useFeed() {
@@ -44,17 +43,16 @@ export function useFeed() {
     refetch,
   } = useInfiniteQuery({
     queryKey: ['feed'],
-    queryFn: async ({ pageParam = 1 }) => {
-      const response = await postsApi.getFeed(pageParam as number, 20);
+    queryFn: async ({ pageParam }) => {
+      const response = await postsApi.getFeed(pageParam as string);
       if (!response.ok) {
         throw new Error(response.error || 'Failed to fetch feed');
       }
       return response.data as FeedResponse;
     },
-    initialPageParam: 1 as const,
-    getNextPageParam: (lastPage: FeedResponse, allPages: FeedResponse[]) => {
-      if (lastPage.posts?.length < 20) return undefined;
-      return allPages.length + 1;
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage: FeedResponse) => {
+      return lastPage.nextCursor;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes when active
@@ -76,7 +74,7 @@ export function useFeed() {
           ...old,
           pages: old.pages.map((page: FeedResponse) => ({
             ...page,
-            posts: page.posts?.map((post: Post) => 
+            items: page.items?.map((post: Post) => 
               post.id === postId
                 ? {
                     ...post,
@@ -119,7 +117,7 @@ export function useFeed() {
             ...old,
             pages: old.pages.map((page: FeedResponse) => ({
               ...page,
-              posts: page.posts?.map((post: Post) => 
+              items: page.items?.map((post: Post) => 
                 post.id === postId
                   ? { ...post, comments: post.comments + 1 }
                   : post
@@ -169,7 +167,7 @@ export function useFeed() {
   });
 
   // Flatten posts from all pages
-  const posts = data?.pages?.flatMap(page => page.posts || []) || [];
+  const posts = data?.pages?.flatMap(page => page.items || []) || [];
   
   return {
     posts,

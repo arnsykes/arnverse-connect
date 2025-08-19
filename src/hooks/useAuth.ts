@@ -6,14 +6,16 @@ import { toast } from '@/hooks/use-toast';
 interface User {
   id: string;
   username: string;
-  displayName: string;
+  display_name: string;
   email: string;
   bio?: string;
   avatar?: string;
-  isExclusive: boolean;
-  followers: number;
-  following: number;
-  posts: number;
+  is_verified?: boolean;
+}
+
+interface AuthResponse {
+  token: string;
+  user: User;
 }
 
 export function useAuth() {
@@ -41,8 +43,10 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: authApi.login,
     onSuccess: (response) => {
-      if (response.ok) {
-        queryClient.setQueryData(['auth', 'me'], response.data);
+      if (response.ok && response.data) {
+        const { token, user } = response.data as AuthResponse;
+        localStorage.setItem('arn_token', token);
+        queryClient.setQueryData(['auth', 'me'], user);
         toast({
           title: "Welcome back!",
           description: "Successfully logged into ARNVERSE",
@@ -64,8 +68,10 @@ export function useAuth() {
   const registerMutation = useMutation({
     mutationFn: authApi.register,
     onSuccess: (response) => {
-      if (response.ok) {
-        queryClient.setQueryData(['auth', 'me'], response.data);
+      if (response.ok && response.data) {
+        const { token, user } = response.data as AuthResponse;
+        localStorage.setItem('arn_token', token);
+        queryClient.setQueryData(['auth', 'me'], user);
         toast({
           title: "Welcome to ARNVERSE!",
           description: "Your account has been created successfully",
@@ -87,6 +93,7 @@ export function useAuth() {
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
     onSuccess: () => {
+      localStorage.removeItem('arn_token');
       queryClient.setQueryData(['auth', 'me'], null);
       queryClient.clear(); // Clear all cached data
       toast({
@@ -95,17 +102,19 @@ export function useAuth() {
       });
     },
     onError: (error: Error) => {
+      // Even if logout API fails, clear local data
+      localStorage.removeItem('arn_token');
+      queryClient.setQueryData(['auth', 'me'], null);
       toast({
-        title: "Logout error",
-        description: error.message,
-        variant: "destructive",
+        title: "Logged out",
+        description: "See you in the cosmos soon!",
       });
     },
   });
 
   // Auth actions
   const login = useCallback(
-    (credentials: { username: string; password: string }) => {
+    (credentials: { email: string; password: string }) => {
       loginMutation.mutate(credentials);
     },
     [loginMutation]
@@ -116,7 +125,6 @@ export function useAuth() {
       username: string; 
       email: string; 
       password: string; 
-      displayName: string 
     }) => {
       registerMutation.mutate(userData);
     },
