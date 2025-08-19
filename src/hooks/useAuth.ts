@@ -1,156 +1,69 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi } from '@/lib/api';
-import { toast } from '@/hooks/use-toast';
+import { useEffect } from 'react';
+import { useAuthStore } from '@/store/auth';
 
-interface User {
-  id: string;
-  username: string;
-  display_name: string;
-  email: string;
-  bio?: string;
-  avatar?: string;
-  is_verified?: boolean;
-}
-
-interface AuthResponse {
-  token: string;
-  user: User;
-}
+// ===================================================================
+// useAuth Hook - Interface ke Auth Store
+// Simplified hook yang menggunakan Zustand store
+// ===================================================================
 
 export function useAuth() {
-  const queryClient = useQueryClient();
-  
-  // Get current user
-  const { 
-    data: user, 
-    isLoading: isLoadingUser, 
-    error: userError 
-  } = useQuery({
-    queryKey: ['auth', 'me'],
-    queryFn: async () => {
-      const response = await authApi.me();
-      if (!response.ok) {
-        throw new Error(response.error || 'Failed to get user');
-      }
-      return response.data as User;
-    },
-    retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const {
+    user,
+    token,
+    status,
+    login: loginAction,
+    register: registerAction,
+    logout: logoutAction,
+    hydrate,
+  } = useAuthStore();
 
-  // Login mutation
-  const loginMutation = useMutation({
-    mutationFn: authApi.login,
-    onSuccess: (response) => {
-      if (response.ok && response.data) {
-        const { token, user } = response.data as AuthResponse;
-        localStorage.setItem('arn_token', token);
-        queryClient.setQueryData(['auth', 'me'], user);
-        toast({
-          title: "Welcome back!",
-          description: "Successfully logged into ARNVERSE",
-        });
-      } else {
-        throw new Error(response.error || 'Login failed');
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  // Auto-hydrate saat hook pertama kali digunakan
+  useEffect(() => {
+    if (status === 'idle') {
+      hydrate();
+    }
+  }, [status, hydrate]);
 
-  // Register mutation
-  const registerMutation = useMutation({
-    mutationFn: authApi.register,
-    onSuccess: (response) => {
-      if (response.ok && response.data) {
-        const { token, user } = response.data as AuthResponse;
-        localStorage.setItem('arn_token', token);
-        queryClient.setQueryData(['auth', 'me'], user);
-        toast({
-          title: "Welcome to ARNVERSE!",
-          description: "Your account has been created successfully",
-        });
-      } else {
-        throw new Error(response.error || 'Registration failed');
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Registration failed", 
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  // Computed values
+  const isAuthenticated = status === 'authenticated' && !!user;
+  const isLoading = status === 'loading';
+  const isGuest = status === 'guest';
 
-  // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: authApi.logout,
-    onSuccess: () => {
-      localStorage.removeItem('arn_token');
-      queryClient.setQueryData(['auth', 'me'], null);
-      queryClient.clear(); // Clear all cached data
-      toast({
-        title: "Logged out",
-        description: "See you in the cosmos soon!",
-      });
-    },
-    onError: (error: Error) => {
-      // Even if logout API fails, clear local data
-      localStorage.removeItem('arn_token');
-      queryClient.setQueryData(['auth', 'me'], null);
-      toast({
-        title: "Logged out",
-        description: "See you in the cosmos soon!",
-      });
-    },
-  });
+  // Wrapper functions untuk compatibility dengan komponen yang ada
+  const login = async (credentials: { email: string; password: string }) => {
+    return await loginAction(credentials.email, credentials.password);
+  };
 
-  // Auth actions
-  const login = useCallback(
-    (credentials: { email: string; password: string }) => {
-      loginMutation.mutate(credentials);
-    },
-    [loginMutation]
-  );
+  const register = async (userData: { 
+    username: string; 
+    email: string; 
+    password: string; 
+  }) => {
+    return await registerAction(userData.username, userData.email, userData.password);
+  };
 
-  const register = useCallback(
-    (userData: { 
-      username: string; 
-      email: string; 
-      password: string; 
-    }) => {
-      registerMutation.mutate(userData);
-    },
-    [registerMutation]
-  );
-
-  const logout = useCallback(() => {
-    logoutMutation.mutate();
-  }, [logoutMutation]);
-
-  const isAuthenticated = !!user;
-  const isLoading = isLoadingUser || 
-    loginMutation.isPending || 
-    registerMutation.isPending || 
-    logoutMutation.isPending;
+  const logout = () => {
+    logoutAction();
+  };
 
   return {
+    // State
     user,
+    token,
     isAuthenticated,
     isLoading,
+    isGuest,
+    status,
+    
+    // Actions
     login,
     register,
     logout,
-    loginError: loginMutation.error,
-    registerError: registerMutation.error,
-    isLoginPending: loginMutation.isPending,
-    isRegisterPending: registerMutation.isPending,
+    
+    // Legacy compatibility (untuk komponen yang masih pakai ini)
+    loginError: null,
+    registerError: null,
+    isLoginPending: isLoading,
+    isRegisterPending: isLoading,
   };
 }
