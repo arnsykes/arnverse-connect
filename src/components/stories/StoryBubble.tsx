@@ -1,20 +1,9 @@
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
-
-interface Story {
-  id: string;
-  user: {
-    username: string;
-    displayName: string;
-    avatar?: string;
-  };
-  preview: string;
-  isViewed: boolean;
-  isOwn?: boolean;
-}
+import type { Story } from "@/hooks/useStories";
 
 interface StoryBubbleProps {
-  story?: Story;
+  story?: Story & { isOwn?: boolean };
   isAddStory?: boolean;
   onClick?: () => void;
 }
