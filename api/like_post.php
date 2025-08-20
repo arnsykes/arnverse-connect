@@ -40,7 +40,12 @@ try {
     $db = getDB();
     
     // Cek apakah post ada
-    $post = $db->fetch("SELECT id, user_id FROM posts WHERE id = ? AND is_active = 1", [$postId]);
+    $sql = "SELECT id, user_id FROM posts WHERE id = ?";
+    if ($db->columnExists('posts', 'is_active')) {
+        $sql .= " AND is_active = 1";
+    }
+    
+    $post = $db->fetch($sql, [$postId]);
     if (!$post) {
         sendNotFound('Post tidak ditemukan');
         exit;
@@ -48,9 +53,9 @@ try {
     
     $db->beginTransaction();
     
-    // Cek apakah user sudah like post ini
+    // Cek apakah user sudah like post ini (using simple post_id column)
     $existingLike = $db->fetch(
-        "SELECT id FROM likes WHERE user_id = ? AND likeable_id = ? AND likeable_type = 'post'",
+        "SELECT id FROM likes WHERE user_id = ? AND post_id = ?",
         [$userId, $postId]
     );
     
@@ -59,21 +64,21 @@ try {
     if ($existingLike) {
         // Unlike - hapus like
         $db->execute(
-            "DELETE FROM likes WHERE user_id = ? AND likeable_id = ? AND likeable_type = 'post'",
+            "DELETE FROM likes WHERE user_id = ? AND post_id = ?",
             [$userId, $postId]
         );
         $action = 'unliked';
     } else {
         // Like - tambah like
         $db->execute(
-            "INSERT INTO likes (user_id, likeable_id, likeable_type, created_at) VALUES (?, ?, 'post', NOW())",
+            "INSERT INTO likes (user_id, post_id, created_at) VALUES (?, ?, NOW())",
             [$userId, $postId]
         );
         $isLiked = true;
         $action = 'liked';
         
         // Create notification untuk pemilik post (kecuali diri sendiri)
-        if ($post['user_id'] != $userId) {
+        if ($post['user_id'] != $userId && $db->tableExists('notifications')) {
             $db->execute(
                 "INSERT INTO notifications (user_id, type, actor_id, post_id, created_at) 
                  VALUES (?, 'like', ?, ?, NOW())",
@@ -85,7 +90,7 @@ try {
     $db->commit();
     
     // Get updated like count
-    $likeCount = $db->fetch("SELECT COUNT(*) as count FROM likes WHERE likeable_id = ? AND likeable_type = 'post'", [$postId])['count'];
+    $likeCount = $db->fetch("SELECT COUNT(*) as count FROM likes WHERE post_id = ?", [$postId])['count'];
     
     $response = [
         'post_id' => $postId,
@@ -97,7 +102,7 @@ try {
     sendSuccess($response);
     
 } catch (Exception $e) {
-    if ($db && $db->inTransaction()) {
+    if (isset($db) && $db->inTransaction()) {
         $db->rollback();
     }
     handleException($e);

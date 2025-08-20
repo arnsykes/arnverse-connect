@@ -35,22 +35,28 @@ try {
     // Order by trending score atau alphabetical
     $orderBy = $trending ? "trending_score DESC, posts_count DESC" : "name ASC";
     
-    // Query hashtags
+    // Safe limit and offset (no placeholders for EMULATE_PREPARES=false)
+    $safeLimit = max(1, min(100, $limit));
+    $safeOffset = max(0, $offset);
+    
+    // Query hashtags - check column names
+    $lastUsedColumn = $db->columnExists('hashtags', 'last_used_at') ? 'last_used_at' : 'last_used';
+    
     $sql = "
         SELECT 
             id,
             name,
             posts_count,
             trending_score,
-            last_used,
+            {$lastUsedColumn} as last_used,
             created_at
         FROM hashtags
         {$whereClause}
         ORDER BY {$orderBy}
-        LIMIT ? OFFSET ?
+        LIMIT {$safeLimit} OFFSET {$safeOffset}
     ";
     
-    $queryParams = array_merge($params, [$limit, $offset]);
+    $queryParams = $params;
     $hashtags = $db->fetchAll($sql, $queryParams);
     
     // Count total untuk pagination

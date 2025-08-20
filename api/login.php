@@ -64,8 +64,8 @@ try {
     $token = Auth::generateJWT($user['id']);
     Auth::saveSession($token, $user['id'], getUserAgent(), getClientIP());
     
-    // Update last login
-    $db->execute("UPDATE users SET last_login = NOW() WHERE id = ?", [$user['id']]);
+    // Update last login (if column exists)
+    $db->safeUpdateLastLogin($user['id']);
     
     // Format user data untuk response
     $userData = formatUserData($user, true);

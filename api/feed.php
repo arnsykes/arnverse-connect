@@ -35,13 +35,24 @@ try {
     $db = getDB();
     
     // Build query
-    $whereConditions = ["p.is_active = 1"];
+    $whereConditions = [];
     $params = [];
+    
+    // Only check is_active if column exists
+    $db = getDB();
+    if ($db->columnExists('posts', 'is_active')) {
+        $whereConditions[] = "p.is_active = 1";
+    }
     
     if ($search) {
         $whereConditions[] = "(p.content LIKE ? OR u.username LIKE ? OR u.display_name LIKE ?)";
         $searchParam = "%{$search}%";
         $params = array_merge($params, [$searchParam, $searchParam, $searchParam]);
+    }
+    
+    // Add default condition if no conditions
+    if (empty($whereConditions)) {
+        $whereConditions[] = "1=1";
     }
     
     // Jika user login, prioritaskan posts dari following
@@ -57,6 +68,10 @@ try {
     }
     
     $whereClause = implode(" AND ", $whereConditions);
+    
+    // Safe limit and offset (no placeholders for EMULATE_PREPARES=false)
+    $safeLimit = max(1, min(100, $limit));
+    $safeOffset = max(0, $offset);
     
     // Query posts dengan join ke users dan optional following
     $sql = "
@@ -78,21 +93,21 @@ try {
         LEFT JOIN hashtags h ON ph.hashtag_id = h.id
         " . ($currentUserId ? "
         LEFT JOIN follows f ON u.id = f.following_id AND f.follower_id = ?
-        LEFT JOIN likes l ON p.id = l.likeable_id AND l.likeable_type = 'post' AND l.user_id = ?
+        LEFT JOIN likes l ON p.id = l.post_id AND l.user_id = ?
         LEFT JOIN bookmarks b ON p.id = b.post_id AND b.user_id = ?
         " : "") . "
         WHERE {$whereClause}
         GROUP BY p.id
         ORDER BY {$orderBy}
-        LIMIT ? OFFSET ?
+        LIMIT {$safeLimit} OFFSET {$safeOffset}
     ";
     
-    // Prepare parameters
+    // Prepare parameters (no limit/offset in params)
     $queryParams = [];
     if ($currentUserId) {
         $queryParams = [$currentUserId, $currentUserId, $currentUserId];
     }
-    $queryParams = array_merge($queryParams, $params, [$limit, $offset]);
+    $queryParams = array_merge($queryParams, $params);
     
     $posts = $db->fetchAll($sql, $queryParams);
     

@@ -22,6 +22,17 @@ try {
     
     $db = getDB();
     
+    // Check if chat tables exist
+    if (!$db->tableExists('chats') || !$db->tableExists('chat_participants')) {
+        // Return safe fallback response
+        sendSuccess([], ['page' => 1, 'limit' => 20, 'total' => 0]);
+        exit;
+    }
+    
+    // Safe limit and offset
+    $safeLimit = max(1, min(100, $limit));
+    $safeOffset = max(0, $offset);
+    
     // Query chats yang user ikuti
     $sql = "
         SELECT 
@@ -37,18 +48,18 @@ try {
             (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.created_at > COALESCE(cp.last_read_at, '1970-01-01')) as unread_count
         FROM chats c
         JOIN chat_participants cp ON c.id = cp.chat_id
-        WHERE cp.user_id = ? AND cp.is_active = 1
+        WHERE cp.user_id = ? AND (cp.is_active IS NULL OR cp.is_active = 1)
         ORDER BY last_message_at DESC, c.updated_at DESC
-        LIMIT ? OFFSET ?
+        LIMIT {$safeLimit} OFFSET {$safeOffset}
     ";
     
-    $chats = $db->fetchAll($sql, [$userId, $limit, $offset]);
+    $chats = $db->fetchAll($sql, [$userId]);
     
     // Count total untuk pagination
     $totalResult = $db->fetch(
         "SELECT COUNT(*) as total FROM chats c 
          JOIN chat_participants cp ON c.id = cp.chat_id 
-         WHERE cp.user_id = ? AND cp.is_active = 1",
+         WHERE cp.user_id = ? AND (cp.is_active IS NULL OR cp.is_active = 1)",
         [$userId]
     );
     $total = $totalResult['total'];
@@ -64,7 +75,7 @@ try {
                 SELECT u.id, u.username, u.display_name, u.avatar, u.is_verified
                 FROM chat_participants cp
                 JOIN users u ON cp.user_id = u.id
-                WHERE cp.chat_id = ? AND cp.user_id != ? AND cp.is_active = 1
+                WHERE cp.chat_id = ? AND cp.user_id != ? AND (cp.is_active IS NULL OR cp.is_active = 1)
                 LIMIT 1
             ", [$chat['id'], $userId]);
         }

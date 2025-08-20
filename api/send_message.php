@@ -24,6 +24,14 @@ try {
         exit;
     }
     
+    $db = getDB();
+    
+    // Check if chat tables exist
+    if (!$db->tableExists('chats') || !$db->tableExists('messages')) {
+        sendError('Fitur pesan belum tersedia', 503);
+        exit;
+    }
+    
     // Ambil input
     $input = json_decode(file_get_contents('php://input'), true);
     if (!$input) {
@@ -53,13 +61,17 @@ try {
         exit;
     }
     
-    $db = getDB();
     $db->beginTransaction();
     
     // Jika targetUserId ada, buat atau cari DM chat
     if ($targetUserId && !$chatId) {
         // Cek apakah target user ada
-        $targetUser = $db->fetch("SELECT id FROM users WHERE id = ? AND is_active = 1", [$targetUserId]);
+        $sql = "SELECT id FROM users WHERE id = ?";
+        if ($db->columnExists('users', 'is_active')) {
+            $sql .= " AND is_active = 1";
+        }
+        
+        $targetUser = $db->fetch($sql, [$targetUserId]);
         if (!$targetUser) {
             sendNotFound('Target user tidak ditemukan');
             exit;
@@ -89,10 +101,12 @@ try {
     }
     
     // Cek apakah user adalah participant dari chat ini
-    $participant = $db->fetch(
-        "SELECT id FROM chat_participants WHERE chat_id = ? AND user_id = ? AND is_active = 1",
-        [$chatId, $userId]
-    );
+    $participantSql = "SELECT id FROM chat_participants WHERE chat_id = ? AND user_id = ?";
+    if ($db->columnExists('chat_participants', 'is_active')) {
+        $participantSql .= " AND is_active = 1";
+    }
+    
+    $participant = $db->fetch($participantSql, [$chatId, $userId]);
     
     if (!$participant) {
         sendUnauthorized('Anda tidak memiliki akses ke chat ini');
@@ -128,18 +142,22 @@ try {
     // Update chat updated_at
     $db->execute("UPDATE chats SET updated_at = NOW() WHERE id = ?", [$chatId]);
     
-    // Create notifications untuk participants lain
-    $otherParticipants = $db->fetchAll(
-        "SELECT user_id FROM chat_participants WHERE chat_id = ? AND user_id != ? AND is_active = 1",
-        [$chatId, $userId]
-    );
-    
-    foreach ($otherParticipants as $participant) {
-        $db->execute(
-            "INSERT INTO notifications (user_id, type, actor_id, chat_id, message_id, created_at) 
-             VALUES (?, 'message', ?, ?, ?, NOW())",
-            [$participant['user_id'], $userId, $chatId, $messageId]
-        );
+    // Create notifications untuk participants lain (if notifications table exists)
+    if ($db->tableExists('notifications')) {
+        $otherParticipantsSql = "SELECT user_id FROM chat_participants WHERE chat_id = ? AND user_id != ?";
+        if ($db->columnExists('chat_participants', 'is_active')) {
+            $otherParticipantsSql .= " AND is_active = 1";
+        }
+        
+        $otherParticipants = $db->fetchAll($otherParticipantsSql, [$chatId, $userId]);
+        
+        foreach ($otherParticipants as $participant) {
+            $db->execute(
+                "INSERT INTO notifications (user_id, type, actor_id, chat_id, message_id, created_at) 
+                 VALUES (?, 'message', ?, ?, ?, NOW())",
+                [$participant['user_id'], $userId, $chatId, $messageId]
+            );
+        }
     }
     
     $db->commit();
@@ -177,7 +195,7 @@ try {
     sendSuccess($formattedMessage);
     
 } catch (Exception $e) {
-    if ($db && $db->inTransaction()) {
+    if (isset($db) && $db->inTransaction()) {
         $db->rollback();
     }
     handleException($e);

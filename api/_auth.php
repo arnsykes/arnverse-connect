@@ -89,12 +89,17 @@ class Auth {
      */
     public static function saveSession($token, $userId, $userAgent = null, $ipAddress = null) {
         $db = getDB();
+        // Only save if user_sessions table exists
+        if (!$db->tableExists('user_sessions')) {
+            return true;
+        }
+        
         $expiredAt = date('Y-m-d H:i:s', time() + (JWT_EXPIRE_HOURS * 3600));
         
-        $sql = "INSERT INTO user_sessions (token, user_id, user_agent, ip_address, expired_at, created_at) 
+        $sql = "INSERT INTO user_sessions (token_hash, user_id, user_agent, ip, expires_at, created_at) 
                 VALUES (?, ?, ?, ?, ?, NOW())";
         
-        return $db->execute($sql, [$token, $userId, $userAgent, $ipAddress, $expiredAt]);
+        return $db->execute($sql, [hash('sha256', $token), $userId, $userAgent, $ipAddress, $expiredAt]);
     }
 
     /**
@@ -102,7 +107,11 @@ class Auth {
      */
     public static function removeSession($token) {
         $db = getDB();
-        return $db->execute("DELETE FROM user_sessions WHERE token = ?", [$token]);
+        // Only remove if user_sessions table exists
+        if (!$db->tableExists('user_sessions')) {
+            return true;
+        }
+        return $db->execute("DELETE FROM user_sessions WHERE token_hash = ?", [hash('sha256', $token)]);
     }
 
     /**
@@ -110,9 +119,14 @@ class Auth {
      */
     public static function isSessionValid($token, $userId) {
         $db = getDB();
+        // If user_sessions table doesn't exist, rely on JWT validation only
+        if (!$db->tableExists('user_sessions')) {
+            return true;
+        }
+        
         $session = $db->fetch(
-            "SELECT id FROM user_sessions WHERE token = ? AND user_id = ? AND expired_at > NOW()",
-            [$token, $userId]
+            "SELECT id FROM user_sessions WHERE token_hash = ? AND user_id = ? AND expires_at > NOW()",
+            [hash('sha256', $token), $userId]
         );
         return $session !== false;
     }
@@ -122,11 +136,16 @@ class Auth {
      */
     public static function getUserById($userId) {
         $db = getDB();
-        return $db->fetch(
-            "SELECT id, username, email, display_name, bio, avatar, is_verified, is_admin, created_at 
-             FROM users WHERE id = ? AND is_active = 1",
-            [$userId]
-        );
+        $sql = "SELECT id, username, email, display_name, bio, avatar, is_verified, 
+                       COALESCE(is_admin, 0) as is_admin, created_at 
+                FROM users WHERE id = ?";
+        
+        // Only check is_active if column exists
+        if ($db->columnExists('users', 'is_active')) {
+            $sql .= " AND is_active = 1";
+        }
+        
+        return $db->fetch($sql, [$userId]);
     }
 }
 

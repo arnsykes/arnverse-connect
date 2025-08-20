@@ -16,7 +16,7 @@ class Database {
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4; SET time_zone = '+07:00'"
             ];
             
             $this->pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
@@ -74,6 +74,43 @@ class Database {
 
     public function rollback() {
         return $this->pdo->rollBack();
+    }
+
+    public function inTransaction() {
+        return $this->pdo->inTransaction();
+    }
+
+    public function fetchColumn($sql, $params = []) {
+        return $this->query($sql, $params)->fetchColumn();
+    }
+
+    public function columnExists($table, $column) {
+        try {
+            $sql = "SELECT 1 FROM information_schema.COLUMNS 
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+            $result = $this->fetch($sql, [DB_NAME, $table, $column]);
+            return $result !== false;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function tableExists($table) {
+        try {
+            $sql = "SELECT 1 FROM information_schema.TABLES 
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
+            $result = $this->fetch($sql, [DB_NAME, $table]);
+            return $result !== false;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function safeUpdateLastLogin($userId) {
+        if ($this->columnExists('users', 'last_login')) {
+            return $this->execute("UPDATE users SET last_login = NOW() WHERE id = ?", [$userId]);
+        }
+        return true;
     }
 }
 

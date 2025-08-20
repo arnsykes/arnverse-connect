@@ -40,7 +40,12 @@ try {
     $db = getDB();
     
     // Cek apakah post ada
-    $post = $db->fetch("SELECT id FROM posts WHERE id = ? AND is_active = 1", [$postId]);
+    $sql = "SELECT id FROM posts WHERE id = ?";
+    if ($db->columnExists('posts', 'is_active')) {
+        $sql .= " AND is_active = 1";
+    }
+    
+    $post = $db->fetch($sql, [$postId]);
     if (!$post) {
         sendNotFound('Post tidak ditemukan');
         exit;
@@ -61,7 +66,11 @@ try {
     
     $whereClause = implode(" AND ", $whereConditions);
     
-    // Query comments
+    // Safe limit and offset (no placeholders for EMULATE_PREPARES=false)
+    $safeLimit = max(1, min(100, $limit));
+    $safeOffset = max(0, $offset);
+    
+    // Query comments - remove likeable_type references for comments
     $sql = "
         SELECT 
             c.*,
@@ -70,25 +79,16 @@ try {
             u.display_name as author_display_name,
             u.avatar as author_avatar,
             u.is_verified as author_is_verified,
-            " . ($currentUserId ? "
-            CASE WHEN l.user_id IS NOT NULL THEN 1 ELSE 0 END as is_liked
-            " : "0 as is_liked") . ",
+            0 as is_liked,
             (SELECT COUNT(*) FROM comments WHERE parent_id = c.id) as replies_count
         FROM comments c
         JOIN users u ON c.user_id = u.id
-        " . ($currentUserId ? "
-        LEFT JOIN likes l ON c.id = l.likeable_id AND l.likeable_type = 'comment' AND l.user_id = ?
-        " : "") . "
         WHERE {$whereClause}
         ORDER BY c.created_at ASC
-        LIMIT ? OFFSET ?
+        LIMIT {$safeLimit} OFFSET {$safeOffset}
     ";
     
-    $queryParams = [];
-    if ($currentUserId) {
-        $queryParams[] = $currentUserId;
-    }
-    $queryParams = array_merge($queryParams, $params, [$limit, $offset]);
+    $queryParams = array_merge($params);
     
     $comments = $db->fetchAll($sql, $queryParams);
     

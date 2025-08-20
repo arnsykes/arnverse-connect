@@ -39,11 +39,16 @@ try {
         
         if ($username) {
             // Get specific user profile
-            $targetUser = $db->fetch(
-                "SELECT id, username, email, display_name, bio, avatar, is_verified, is_admin, created_at 
-                 FROM users WHERE username = ? AND is_active = 1",
-                [$username]
-            );
+            $sql = "SELECT id, username, email, display_name, bio, avatar, is_verified, 
+                           COALESCE(is_admin, 0) as is_admin, created_at 
+                    FROM users WHERE username = ?";
+            
+            // Only check is_active if column exists
+            if ($db->columnExists('users', 'is_active')) {
+                $sql .= " AND is_active = 1";
+            }
+            
+            $targetUser = $db->fetch($sql, [$username]);
         } else if ($currentUserId) {
             // Get current user profile
             $targetUser = $currentUser;
@@ -61,12 +66,17 @@ try {
         $isOwnProfile = $currentUserId && $currentUserId == $targetUserId;
         
         // Get user stats
-        $stats = $db->fetch("
-            SELECT 
-                (SELECT COUNT(*) FROM posts WHERE user_id = ? AND is_active = 1) as posts_count,
-                (SELECT COUNT(*) FROM follows WHERE following_id = ?) as followers_count,
-                (SELECT COUNT(*) FROM follows WHERE follower_id = ?) as following_count
-        ", [$targetUserId, $targetUserId, $targetUserId]);
+        $sql = "SELECT 
+                    (SELECT COUNT(*) FROM posts WHERE user_id = ?) as posts_count,
+                    (SELECT COUNT(*) FROM follows WHERE following_id = ?) as followers_count,
+                    (SELECT COUNT(*) FROM follows WHERE follower_id = ?) as following_count";
+        
+        // Only filter by is_active if column exists in posts
+        if ($db->columnExists('posts', 'is_active')) {
+            $sql = str_replace('FROM posts WHERE user_id = ?', 'FROM posts WHERE user_id = ? AND is_active = 1', $sql);
+        }
+        
+        $stats = $db->fetch($sql, [$targetUserId, $targetUserId, $targetUserId]);
         
         // Check if current user follows target user
         $isFollowing = false;

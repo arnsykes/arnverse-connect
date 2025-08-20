@@ -20,6 +20,18 @@ try {
     $userId = $user['id'];
     
     $method = $_SERVER['REQUEST_METHOD'];
+    $db = getDB();
+    
+    // Check if notifications table exists
+    if (!$db->tableExists('notifications')) {
+        // Return safe fallback response
+        if ($method === 'GET') {
+            sendSuccess([], ['page' => 1, 'limit' => 20, 'total' => 0, 'unread_count' => 0]);
+        } else {
+            sendSuccess(['message' => 'Fitur notifikasi belum tersedia', 'unread_count' => 0]);
+        }
+        exit;
+    }
     
     if ($method === 'GET') {
         // GET: List notifications
@@ -27,6 +39,10 @@ try {
         [$page, $limit, $offset] = getPaginationParams();
         
         $db = getDB();
+        
+        // Safe limit and offset (no placeholders for EMULATE_PREPARES=false)
+        $safeLimit = max(1, min(100, $limit));
+        $safeOffset = max(0, $offset);
         
         // Query notifications untuk user
         $sql = "
@@ -48,10 +64,10 @@ try {
             LEFT JOIN chats ch ON n.chat_id = ch.id
             WHERE n.user_id = ?
             ORDER BY n.created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT {$safeLimit} OFFSET {$safeOffset}
         ";
         
-        $notifications = $db->fetchAll($sql, [$userId, $limit, $offset]);
+        $notifications = $db->fetchAll($sql, [$userId]);
         
         // Count total untuk pagination
         $totalResult = $db->fetch("SELECT COUNT(*) as total FROM notifications WHERE user_id = ?", [$userId]);

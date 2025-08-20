@@ -51,7 +51,7 @@ try {
             " . ($currentUserId ? "
             LEFT JOIN story_views sv ON s.id = sv.story_id AND sv.user_id = ?
             " : "") . "
-            WHERE s.expired_at > NOW() AND s.is_active = 1
+            WHERE s.expired_at > NOW()
             ORDER BY 
                 " . ($currentUserId ? "
                 CASE WHEN s.user_id = ? THEN 0 ELSE 1 END,

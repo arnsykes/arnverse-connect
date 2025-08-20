@@ -48,7 +48,12 @@ try {
     $db = getDB();
     
     // Cek apakah post ada
-    $post = $db->fetch("SELECT id, user_id FROM posts WHERE id = ? AND is_active = 1", [$postId]);
+    $sql = "SELECT id, user_id FROM posts WHERE id = ?";
+    if ($db->columnExists('posts', 'is_active')) {
+        $sql .= " AND is_active = 1";
+    }
+    
+    $post = $db->fetch($sql, [$postId]);
     if (!$post) {
         sendNotFound('Post tidak ditemukan');
         exit;
@@ -77,7 +82,7 @@ try {
     $commentId = $db->lastInsertId();
     
     // Create notification untuk pemilik post (kecuali diri sendiri)
-    if ($post['user_id'] != $userId) {
+    if ($post['user_id'] != $userId && $db->tableExists('notifications')) {
         $db->execute(
             "INSERT INTO notifications (user_id, type, actor_id, post_id, comment_id, created_at) 
              VALUES (?, 'comment', ?, ?, ?, NOW())",
@@ -86,7 +91,8 @@ try {
     }
     
     // Jika reply, buat notif untuk parent comment owner juga
-    if ($parentId && $parentComment['user_id'] != $userId && $parentComment['user_id'] != $post['user_id']) {
+    if ($parentId && isset($parentComment) && $parentComment['user_id'] != $userId && 
+        $parentComment['user_id'] != $post['user_id'] && $db->tableExists('notifications')) {
         $db->execute(
             "INSERT INTO notifications (user_id, type, actor_id, post_id, comment_id, created_at) 
              VALUES (?, 'reply', ?, ?, ?, NOW())",
@@ -95,14 +101,16 @@ try {
     }
     
     // Create notifications untuk mentions
-    foreach ($mentions as $mentionedUsername) {
-        $mentionedUser = $db->fetch("SELECT id FROM users WHERE username = ?", [$mentionedUsername]);
-        if ($mentionedUser && $mentionedUser['id'] != $userId) {
-            $db->execute(
-                "INSERT INTO notifications (user_id, type, actor_id, post_id, comment_id, created_at) 
-                 VALUES (?, 'mention', ?, ?, ?, NOW())",
-                [$mentionedUser['id'], $userId, $postId, $commentId]
-            );
+    if ($db->tableExists('notifications')) {
+        foreach ($mentions as $mentionedUsername) {
+            $mentionedUser = $db->fetch("SELECT id FROM users WHERE username = ?", [$mentionedUsername]);
+            if ($mentionedUser && $mentionedUser['id'] != $userId) {
+                $db->execute(
+                    "INSERT INTO notifications (user_id, type, actor_id, post_id, comment_id, created_at) 
+                     VALUES (?, 'mention', ?, ?, ?, NOW())",
+                    [$mentionedUser['id'], $userId, $postId, $commentId]
+                );
+            }
         }
     }
     
@@ -144,7 +152,7 @@ try {
     sendSuccess($formattedComment);
     
 } catch (Exception $e) {
-    if ($db && $db->inTransaction()) {
+    if (isset($db) && $db->inTransaction()) {
         $db->rollback();
     }
     handleException($e);

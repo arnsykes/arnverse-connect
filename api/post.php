@@ -76,26 +76,28 @@ try {
     // Process hashtags
     foreach ($hashtags as $hashtagName) {
         // Insert atau update hashtag
-        $hashtagSql = "INSERT INTO hashtags (name, posts_count, last_used) 
+        $hashtagSql = "INSERT INTO hashtags (name, posts_count, last_used_at) 
                        VALUES (?, 1, NOW()) 
                        ON DUPLICATE KEY UPDATE 
-                       posts_count = posts_count + 1, last_used = NOW()";
+                       posts_count = posts_count + 1, last_used_at = NOW()";
         $db->execute($hashtagSql, [$hashtagName]);
         
         // Get hashtag ID
         $hashtagId = $db->fetch("SELECT id FROM hashtags WHERE name = ?", [$hashtagName])['id'];
         
         // Link post ke hashtag
-        $db->execute("INSERT INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?)", [$postId, $hashtagId]);
+        $db->execute("INSERT IGNORE INTO post_hashtags (post_id, hashtag_id, created_at) VALUES (?, ?, NOW())", [$postId, $hashtagId]);
     }
     
-    // Create notifications untuk mentions
-    foreach ($mentions as $mentionedUsername) {
-        $mentionedUser = $db->fetch("SELECT id FROM users WHERE username = ?", [$mentionedUsername]);
-        if ($mentionedUser) {
-            $notifSql = "INSERT INTO notifications (user_id, type, actor_id, post_id, created_at) 
-                         VALUES (?, 'mention', ?, ?, NOW())";
-            $db->execute($notifSql, [$mentionedUser['id'], $userId, $postId]);
+    // Create notifications untuk mentions (if notifications table exists)
+    if ($db->tableExists('notifications')) {
+        foreach ($mentions as $mentionedUsername) {
+            $mentionedUser = $db->fetch("SELECT id FROM users WHERE username = ?", [$mentionedUsername]);
+            if ($mentionedUser) {
+                $notifSql = "INSERT INTO notifications (user_id, type, actor_id, post_id, created_at) 
+                             VALUES (?, 'mention', ?, ?, NOW())";
+                $db->execute($notifSql, [$mentionedUser['id'], $userId, $postId]);
+            }
         }
     }
     
@@ -119,7 +121,7 @@ try {
     sendSuccess($formattedPost);
     
 } catch (Exception $e) {
-    if ($db && $db->inTransaction()) {
+    if (isset($db) && $db->inTransaction()) {
         $db->rollback();
     }
     handleException($e);
