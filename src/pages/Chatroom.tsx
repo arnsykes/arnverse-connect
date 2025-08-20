@@ -106,7 +106,7 @@ export default function Chatroom() {
         const optimisticMessage: ChatMessage = {
           id: Date.now().toString(),
           user: {
-            id: user!.id,
+            id: user!.id.toString(),
             username: user!.username,
             display_name: user!.display_name,
             avatar: user!.avatar,
