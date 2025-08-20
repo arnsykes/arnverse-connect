@@ -1,0 +1,30 @@
+# UNUSED FILES - ARNVERSE Frontend
+
+## Potentially Unused Files
+(After thorough analysis, most files appear to be used)
+
+## Legacy/Backup Files
+(None identified - clean codebase)
+
+## Files That Could Be Removed (with caution)
+- None identified at this time
+
+## Development-Only Files (Safe to ignore in production)
+- bun.lockb - Package lock file
+- .gitignore - Git configuration
+- components.json - Shadcn/ui configuration
+- postcss.config.js - PostCSS configuration
+- tsconfig.*.json - TypeScript configuration files
+
+## Notes
+- All src/ files appear to be actively used
+- All components in src/components/ui/ are part of the shadcn/ui system
+- All pages in src/pages/ are referenced in routing
+- All hooks in src/hooks/ are used by components
+- No dead code or unused imports identified
+
+## Recommendations
+- The codebase is well-organized with minimal unused files
+- Consider periodic dependency audit with `npm audit` or similar tools
+- Monitor bundle size with build analyzers if performance becomes an issue
+- All current files should be kept for proper functionality

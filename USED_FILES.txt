@@ -1,0 +1,85 @@
+# USED FILES - ARNVERSE Frontend
+
+## Core Application Files
+src/main.tsx - Entry point, renders React app
+src/App.tsx - Main app component with routing
+src/App.css - Global styles (if used)
+src/index.css - Tailwind CSS imports and design tokens
+src/vite-env.d.ts - Vite type definitions
+
+## Type Definitions
+src/types/social.ts - UI and API type definitions
+src/lib/mappers.ts - Data normalization mappers (snake_case → camelCase)
+
+## API & Data Layer
+src/lib/api.ts - All API communication with PHP backend
+src/lib/utils.ts - Utility functions (cn, etc.)
+src/store/auth.ts - Authentication state management
+src/hooks/useAuth.ts - Authentication hook
+src/hooks/useFeed.ts - Feed data management with React Query
+src/hooks/useNotifications.ts - Notifications hook
+src/hooks/useStories.ts - Stories hook  
+src/hooks/use-mobile.tsx - Mobile detection hook
+src/hooks/use-toast.ts - Toast notifications hook
+
+## Components - Layout
+src/components/layout/Layout.tsx - Main layout wrapper
+src/components/layout/Header.tsx - Top navigation header
+src/components/layout/Sidebar.tsx - Desktop sidebar navigation
+src/components/layout/MobileTabBar.tsx - Mobile bottom navigation
+
+## Components - Core Features
+src/components/feed/FeedCard.tsx - Individual post display
+src/components/CommentDrawer.tsx - Comments modal/drawer
+src/components/CreatePost.tsx - Post creation form
+src/components/stories/StoryBubble.tsx - Story circle display
+src/components/stories/StoryViewer.tsx - Story viewer modal
+src/components/ProtectedRoute.tsx - Auth-required route wrapper
+src/components/PublicRoute.tsx - Public-only route wrapper
+
+## Components - UI System (Shadcn/ui)
+src/components/ui/ - All UI components imported from shadcn/ui:
+- accordion.tsx, alert-dialog.tsx, alert.tsx, aspect-ratio.tsx
+- avatar.tsx, badge.tsx, breadcrumb.tsx, button.tsx
+- calendar.tsx, card.tsx, carousel.tsx, chart.tsx
+- checkbox.tsx, collapsible.tsx, command.tsx, context-menu.tsx
+- dialog.tsx, drawer.tsx, dropdown-menu.tsx, form.tsx
+- hover-card.tsx, input-otp.tsx, input.tsx, label.tsx
+- menubar.tsx, navigation-menu.tsx, pagination.tsx, popover.tsx
+- progress.tsx, radio-group.tsx, resizable.tsx, scroll-area.tsx
+- select.tsx, separator.tsx, sheet.tsx, sidebar.tsx
+- skeleton.tsx, slider.tsx, sonner.tsx, switch.tsx
+- table.tsx, tabs.tsx, textarea.tsx, toast.tsx, toaster.tsx
+- toggle-group.tsx, toggle.tsx, tooltip.tsx, use-toast.ts
+
+## Pages
+src/pages/Index.tsx - Landing/home page
+src/pages/Login.tsx - Login form page
+src/pages/Register.tsx - Registration form page
+src/pages/Feed.tsx - Main feed page
+src/pages/Explore.tsx - Explore/discover page
+src/pages/Profile.tsx - User profile page
+src/pages/Search.tsx - Search functionality
+src/pages/Settings.tsx - User settings page
+src/pages/Inbox.tsx - Messages/DM page
+src/pages/Chatroom.tsx - Public chat room
+src/pages/NotFound.tsx - 404 error page
+
+## Assets
+src/assets/cosmic-hero.jpg - Hero image for design
+
+## Configuration
+tailwind.config.ts - Tailwind CSS configuration
+vite.config.ts - Vite build configuration
+index.html - HTML template
+eslint.config.js - ESLint configuration
+
+## Documentation
+README.md - Project documentation
+COMPREHENSIVE-AUDIT-SUMMARY.md - Audit results summary
+docs/api-map.json - API endpoint documentation
+USED_FILES.txt - This file
+UNUSED_FILES.txt - Unused files list
+
+## Root Files
+package.json - Dependencies and scripts (read-only)

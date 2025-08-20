@@ -2,31 +2,12 @@ import { useState } from "react";
 import { Heart, MessageCircle, Share, MoreHorizontal, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-
-interface Post {
-  id: string;
-  author: {
-    username: string;
-    displayName: string;
-    avatar?: string;
-    isExclusive?: boolean;
-  };
-  content: string;
-  media?: {
-    type: 'image' | 'video';
-    url: string;
-  }[];
-  likes: number;
-  comments: number;
-  shares: number;
-  timestamp: string;
-  isLiked: boolean;
-  isSaved: boolean;
-}
+import type { PostUI } from "@/types/social";
 
 interface FeedCardProps {
-  post: Post;
+  post: PostUI;
   onLike?: (postId: string) => void;
   onComment?: (postId: string) => void;
   onShare?: (postId: string) => void;
@@ -37,6 +18,13 @@ export function FeedCard({ post, onLike, onComment, onShare, onSave }: FeedCardP
   const [isLiked, setIsLiked] = useState(post.isLiked);
   const [isSaved, setIsSaved] = useState(post.isSaved);
   const [likesCount, setLikesCount] = useState(post.likes);
+
+  // Safe author access with fallbacks
+  const author = post.author;
+  const authorName = author?.displayName || author?.username || 'Unknown User';
+  const authorUsername = author?.username || 'unknown';
+  const authorAvatar = author?.avatar;
+  const isExclusive = author?.isExclusive || false;
 
   const handleLike = () => {
     const newLikedState = !isLiked;
@@ -55,21 +43,22 @@ export function FeedCard({ post, onLike, onComment, onShare, onSave }: FeedCardP
       {/* Header */}
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center space-x-3">
-          <div className="h-10 w-10 rounded-full cosmic-gradient p-0.5">
-            <div className="h-full w-full rounded-full bg-surface flex items-center justify-center text-sm font-medium">
-              {post.author.displayName.charAt(0)}
-            </div>
-          </div>
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={authorAvatar || undefined} alt={authorName} />
+            <AvatarFallback className="cosmic-gradient text-white text-sm font-medium">
+              {authorName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <div>
             <div className="flex items-center space-x-2">
-              <p className="font-medium text-foreground">{post.author.displayName}</p>
-              {post.author.isExclusive && (
+              <p className="font-medium text-foreground">{authorName}</p>
+              {isExclusive && (
                 <Badge className="cosmic-gradient border-0 text-white text-xs px-2">
                   Exclusive
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">@{post.author.username}</p>
+            <p className="text-sm text-muted-foreground">@{authorUsername}</p>
           </div>
         </div>
         
@@ -87,29 +76,25 @@ export function FeedCard({ post, onLike, onComment, onShare, onSave }: FeedCardP
       </div>
 
       {/* Media */}
-      {post.media && post.media.length > 0 && (
+      {post.mediaUrls && post.mediaUrls.length > 0 && (
         <div className="px-4 pb-4">
           <div className={cn(
             "grid gap-1 rounded-lg overflow-hidden",
-            post.media.length === 1 && "grid-cols-1",
-            post.media.length === 2 && "grid-cols-2",
-            post.media.length > 2 && "grid-cols-2 grid-rows-2"
+            post.mediaUrls.length === 1 && "grid-cols-1",
+            post.mediaUrls.length === 2 && "grid-cols-2",
+            post.mediaUrls.length > 2 && "grid-cols-2 grid-rows-2"
           )}>
-            {post.media.map((item, index) => (
+            {post.mediaUrls.map((url, index) => (
               <div key={index} className="relative bg-surface aspect-square">
-                {item.type === 'image' ? (
-                  <img 
-                    src={item.url} 
-                    alt="Post media"
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <video 
-                    src={item.url}
-                    className="w-full h-full object-cover"
-                    controls
-                  />
-                )}
+                <img 
+                  src={url} 
+                  alt="Post media"
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    // Hide broken images gracefully
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
               </div>
             ))}
           </div>

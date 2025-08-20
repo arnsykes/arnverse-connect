@@ -3,7 +3,8 @@
 // Menangani semua komunikasi dengan backend PHP di /api
 // ===================================================================
 
-import type { Post } from '@/hooks/useFeed';
+import type { PostUI } from '@/types/social';
+import { mapApiPosts, mapApiComments, mapApiStories } from '@/lib/mappers';
 
 // Base URLs - ambil dari environment variables dengan fallback
 const API_BASE_URL = import.meta.env.VITE_API_BASE || '/api';
@@ -27,21 +28,25 @@ interface ApiResponse<T = any> {
 // Get token from localStorage
 const getToken = () => localStorage.getItem('arn_token');
 
-// Add better error handling for API responses
-const handleApiResponse = (data: ApiResponse<any>) => {
-  // Ensure author data is always present to prevent crashes
-  if (data?.data && Array.isArray(data.data)) {
-    data.data = data.data.map((item: any) => ({
-      ...item,
-      author: {
-        id: item.author?.id || 0,
-        username: item.author?.username || 'unknown',
-        display_name: item.author?.display_name || 'Unknown User',
-        avatar: item.author?.avatar || null,
-        is_verified: Boolean(item.author?.is_verified)
-      }
-    }));
+// Enhanced response handler with data normalization
+const handleApiResponse = (data: ApiResponse<any>, endpoint?: string) => {
+  if (!data?.ok || !data?.data) {
+    return data;
   }
+
+  // Apply mappers based on endpoint patterns for automatic normalization
+  try {
+    if (endpoint?.includes('feed.php') && Array.isArray(data.data)) {
+      data.data = mapApiPosts(data.data);
+    } else if (endpoint?.includes('get_comments.php') && data.data?.items) {
+      data.data = { ...data.data, items: mapApiComments(data.data.items) };
+    } else if (endpoint?.includes('stories.php') && Array.isArray(data.data)) {
+      data.data = mapApiStories(data.data);
+    }
+  } catch (error) {
+    console.warn('Data mapping failed for endpoint:', endpoint, error);
+  }
+
   return data;
 };
 
@@ -115,7 +120,7 @@ async function apiRequest<T>(
       throw new Error(errorMsg);
     }
 
-    return handleApiResponse(data);
+    return handleApiResponse(data, endpoint);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Network error';
     console.error('[API] Request failed:', errorMsg);
@@ -159,7 +164,7 @@ async function uploadRequest<T>(
       throw new Error(data.error || `HTTP ${response.status}`);
     }
 
-    return handleApiResponse(data);
+    return handleApiResponse(data, endpoint);
   } catch (error) {
     console.error('Upload failed:', error);
     return {
@@ -205,7 +210,7 @@ export const postsApi = {
     if (cursor) params.append('cursor', cursor);
     params.append('limit', limit.toString());
     
-    return apiRequest<{ items: Post[]; nextCursor?: string }>(`/feed.php?${params.toString()}`);
+    return apiRequest<{ items: PostUI[]; nextCursor?: string }>(`/feed.php?${params.toString()}`);
   },
   
   // POST /api/post.php - upload post baru (form-data untuk media)

@@ -49,35 +49,39 @@ const trendingPosts = [
   {
     id: "trending-1",
     author: {
+      id: 1,
       username: "cosmic_artist",
       displayName: "Luna Cosmic",
       isExclusive: true
     },
     content: "Just finished this incredible piece inspired by the nebulae! The colors of space never cease to amaze me. #CosmicVibes #DigitalArt",
-    media: [
-      { type: 'image' as const, url: "/placeholder.svg" }
-    ],
+    mediaUrls: ["/placeholder.svg"],
+    hashtags: ["#CosmicVibes", "#DigitalArt"],
     likes: 1247,
     comments: 89,
     shares: 45,
+    views: 0,
     timestamp: "3h",
+    createdAt: "2025-08-20T07:00:00Z",
     isLiked: false,
     isSaved: false
   },
   {
     id: "trending-2",
     author: {
+      id: 2,
       username: "space_photographer",
       displayName: "Stellar Shots"
     },
     content: "Caught this amazing sunrise that looked like it was straight from another planet! Nature is the ultimate artist. #SpaceExploration",
-    media: [
-      { type: 'image' as const, url: "/placeholder.svg" }
-    ],
+    mediaUrls: ["/placeholder.svg"],
+    hashtags: ["#SpaceExploration"],
     likes: 892,
     comments: 67,
     shares: 34,
+    views: 0,
     timestamp: "5h",
+    createdAt: "2025-08-20T05:00:00Z",
     isLiked: true,
     isSaved: false
   }

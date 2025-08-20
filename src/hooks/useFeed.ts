@@ -1,32 +1,10 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { postsApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-
-export interface Post {
-  id: string;
-  author: {
-    id: string;
-    username: string;
-    displayName: string;
-    avatar?: string;
-    isExclusive: boolean;
-  };
-  content: string;
-  media?: Array<{
-    type: 'image' | 'video';
-    url: string;
-  }>;
-  likes: number;
-  comments: number;
-  shares: number;
-  timestamp: string;
-  isLiked: boolean;
-  isSaved: boolean;
-  createdAt: string;
-}
+import type { PostUI } from '@/types/social';
 
 interface FeedResponse {
-  items: Post[];
+  items: PostUI[];
   nextCursor?: string;
 }
 
@@ -74,7 +52,7 @@ export function useFeed() {
           ...old,
           pages: old.pages.map((page: FeedResponse) => ({
             ...page,
-            items: page.items?.map((post: Post) => 
+            items: page.items?.map((post: PostUI) => 
               post.id === postId
                 ? {
                     ...post,
@@ -117,7 +95,7 @@ export function useFeed() {
             ...old,
             pages: old.pages.map((page: FeedResponse) => ({
               ...page,
-              items: page.items?.map((post: Post) => 
+              items: page.items?.map((post: PostUI) => 
                 post.id === postId
                   ? { ...post, comments: post.comments + 1 }
                   : post

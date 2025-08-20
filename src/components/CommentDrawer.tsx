@@ -10,20 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { postsApi } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
-interface Comment {
-  id: string;
-  author: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar?: string;
-  };
-  content: string;
-  likes: number;
-  timestamp: string;
-  created_at: string;
-}
+import { mapApiComments } from "@/lib/mappers";
+import type { CommentUI } from "@/types/social";
 
 interface CommentDrawerProps {
   postId: string;
@@ -44,7 +32,15 @@ export function CommentDrawer({ postId, isOpen, onClose }: CommentDrawerProps) {
       if (!response.ok) {
         throw new Error(response.error || 'Failed to fetch comments');
       }
-      return response.data;
+      // Apply mapper if data needs normalization
+      const data = response.data;
+      if (data && typeof data === 'object' && 'items' in data) {
+        const items = (data as any).items;
+        if (Array.isArray(items) && items.length > 0 && !items[0]?.timestamp) {
+          return { ...data, items: mapApiComments(items) };
+        }
+      }
+      return data;
     },
     enabled: isOpen && !!postId,
   });
@@ -80,22 +76,7 @@ export function CommentDrawer({ postId, isOpen, onClose }: CommentDrawerProps) {
     addCommentMutation.mutate(newComment);
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return "now";
-    if (minutes < 60) return `${minutes}m`;
-    if (hours < 24) return `${hours}h`;
-    if (days < 7) return `${days}d`;
-    return date.toLocaleDateString();
-  };
-
-  const comments = (commentsData as any)?.items || [];
+  const comments: CommentUI[] = (commentsData as any)?.items || [];
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -124,39 +105,47 @@ export function CommentDrawer({ postId, isOpen, onClose }: CommentDrawerProps) {
                   </div>
                 ))
               ) : comments.length > 0 ? (
-                comments.map((comment: Comment) => (
-                  <div key={comment.id} className="flex items-start gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={comment.author.avatar} />
-                      <AvatarFallback>
-                        {comment.author.display_name.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm">
-                          {comment.author.display_name}
-                        </span>
-                        <span className="text-muted-foreground text-xs">
-                          @{comment.author.username}
-                        </span>
-                        <span className="text-muted-foreground text-xs">
-                          {formatTimestamp(comment.created_at)}
-                        </span>
-                      </div>
+                comments.map((comment: CommentUI) => {
+                  // Safe author access with fallbacks
+                  const author = comment.author;
+                  const authorName = author?.displayName || author?.username || 'Anonymous';
+                  const authorUsername = author?.username || 'unknown';
+                  const authorAvatar = author?.avatar;
+
+                  return (
+                    <div key={comment.id} className="flex items-start gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={authorAvatar || undefined} />
+                        <AvatarFallback>
+                          {authorName.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       
-                      <p className="text-sm break-words mb-2">{comment.content}</p>
-                      
-                      <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="sm" className="h-8 px-2">
-                          <Heart className="h-3 w-3 mr-1" />
-                          <span className="text-xs">{comment.likes}</span>
-                        </Button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm">
+                            {authorName}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            @{authorUsername}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            {comment.timestamp}
+                          </span>
+                        </div>
+                        
+                        <p className="text-sm break-words mb-2">{comment.content}</p>
+                        
+                        <div className="flex items-center gap-4">
+                          <Button variant="ghost" size="sm" className="h-8 px-2">
+                            <Heart className="h-3 w-3 mr-1" />
+                            <span className="text-xs">{comment.likes}</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">No comments yet. Be the first to comment!</p>

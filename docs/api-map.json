@@ -1,0 +1,222 @@
+{
+  "title": "ARNVERSE API Mapping",
+  "version": "1.0.0",
+  "baseUrl": "https://armworld.space/api",
+  "endpoints": {
+    "auth": {
+      "login": {
+        "url": "/login.php",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        "body": {
+          "email": "string",
+          "password": "string"
+        },
+        "response": {
+          "ok": "boolean",
+          "data": {
+            "token": "string",
+            "user": {
+              "id": "number",
+              "username": "string", 
+              "email": "string",
+              "display_name": "string",
+              "avatar": "string|null",
+              "is_verified": "boolean"
+            }
+          }
+        },
+        "sampleResponse": {
+          "ok": true,
+          "data": {
+            "token": "abc123...",
+            "user": {
+              "id": 3,
+              "username": "charlie_ui",
+              "email": "charlie@example.com",
+              "display_name": "Charlie Designer",
+              "avatar": null,
+              "is_verified": true
+            }
+          }
+        }
+      },
+      "check": {
+        "url": "/auth.php",
+        "method": "GET",
+        "headers": {
+          "Authorization": "Bearer <token>"
+        },
+        "response": {
+          "ok": "boolean",
+          "data": {
+            "user": "UserObject"
+          }
+        }
+      }
+    },
+    "feed": {
+      "getFeed": {
+        "url": "/feed.php",
+        "method": "GET",
+        "params": {
+          "limit": "number (default: 20)",
+          "offset": "number (default: 0)"
+        },
+        "response": {
+          "ok": "boolean",
+          "data": "PostObject[]"
+        },
+        "sampleResponse": {
+          "ok": true,
+          "data": [
+            {
+              "id": 4,
+              "content": "Sample post content",
+              "media_urls": [],
+              "hashtags": ["#nextjs", "#react"],
+              "likes_count": 2,
+              "comments_count": 2,
+              "shares_count": 0,
+              "views_count": 0,
+              "is_liked": false,
+              "is_saved": false,
+              "created_at": "2025-08-20 10:15:05",
+              "updated_at": "2025-08-20 10:15:05",
+              "author": {
+                "id": 3,
+                "username": "charlie_ui",
+                "display_name": "Charlie Designer",
+                "avatar": null,
+                "is_verified": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    "posts": {
+      "like": {
+        "url": "/like_post.php",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <token>",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "post_id": "string"
+        },
+        "response": {
+          "ok": "boolean",
+          "data": {
+            "liked": "boolean"
+          }
+        }
+      },
+      "comment": {
+        "url": "/comment_post.php",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <token>",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "post_id": "string",
+          "content": "string"
+        },
+        "response": {
+          "ok": "boolean",
+          "data": "CommentObject"
+        }
+      },
+      "getComments": {
+        "url": "/get_comments.php",
+        "method": "GET",
+        "params": {
+          "post_id": "string"
+        },
+        "response": {
+          "ok": "boolean",
+          "data": {
+            "items": "CommentObject[]"
+          }
+        }
+      }
+    },
+    "stories": {
+      "getStories": {
+        "url": "/stories.php",
+        "method": "GET",
+        "response": {
+          "ok": "boolean",
+          "data": "StoryObject[]"
+        }
+      },
+      "viewStory": {
+        "url": "/story_view.php",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <token>",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "story_id": "string"
+        },
+        "response": {
+          "ok": "boolean"
+        }
+      }
+    }
+  },
+  "dataModels": {
+    "PostObject": {
+      "id": "string|number",
+      "content": "string",
+      "media_urls": "string[]",
+      "hashtags": "string[]",
+      "likes_count": "number",
+      "comments_count": "number", 
+      "shares_count": "number",
+      "views_count": "number",
+      "is_liked": "boolean",
+      "is_saved": "boolean",
+      "created_at": "string (ISO date)",
+      "updated_at": "string (ISO date)",
+      "author": "AuthorObject"
+    },
+    "AuthorObject": {
+      "id": "number",
+      "username": "string",
+      "display_name": "string",
+      "avatar": "string|null",
+      "is_verified": "boolean",
+      "is_exclusive": "boolean"
+    },
+    "CommentObject": {
+      "id": "string|number",
+      "content": "string",
+      "created_at": "string (ISO date)",
+      "likes": "number",
+      "author": "AuthorObject"
+    },
+    "StoryObject": {
+      "id": "string|number",
+      "media_url": "string",
+      "media_type": "image|video",
+      "content": "string",
+      "duration": "number",
+      "created_at": "string (ISO date)",
+      "expired_at": "string (ISO date)",
+      "is_viewed": "boolean",
+      "author": "AuthorObject"
+    }
+  },
+  "notes": {
+    "fieldNormalization": "API returns snake_case fields (e.g., display_name, likes_count) which are mapped to camelCase in frontend (displayName, likes)",
+    "authRequired": "Most endpoints require Authorization: Bearer <token> header",
+    "errorHandling": "Failed requests return { ok: false, error: 'error message' }",
+    "pagination": "Use limit/offset for feed endpoints"
+  }
+}
