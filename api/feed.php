@@ -93,7 +93,7 @@ try {
         LEFT JOIN hashtags h ON ph.hashtag_id = h.id
         " . ($currentUserId ? "
         LEFT JOIN follows f ON u.id = f.following_id AND f.follower_id = ?
-        LEFT JOIN likes l ON p.id = l.post_id AND l.user_id = ?
+        LEFT JOIN likes l ON (l.post_id = p.id OR (l.likeable_type = 'post' AND l.likeable_id = p.id)) AND l.user_id = ?
         LEFT JOIN bookmarks b ON p.id = b.post_id AND b.user_id = ?
         " : "") . "
         WHERE {$whereClause}

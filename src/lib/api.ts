@@ -27,6 +27,24 @@ interface ApiResponse<T = any> {
 // Get token from localStorage
 const getToken = () => localStorage.getItem('arn_token');
 
+// Add better error handling for API responses
+const handleApiResponse = (data: ApiResponse<any>) => {
+  // Ensure author data is always present to prevent crashes
+  if (data?.data && Array.isArray(data.data)) {
+    data.data = data.data.map((item: any) => ({
+      ...item,
+      author: {
+        id: item.author?.id || 0,
+        username: item.author?.username || 'unknown',
+        display_name: item.author?.display_name || 'Unknown User',
+        avatar: item.author?.avatar || null,
+        is_verified: Boolean(item.author?.is_verified)
+      }
+    }));
+  }
+  return data;
+};
+
 // ===================================================================
 // Enhanced fetch wrapper dengan error handling dan auth
 // ===================================================================
@@ -97,7 +115,7 @@ async function apiRequest<T>(
       throw new Error(errorMsg);
     }
 
-    return data;
+    return handleApiResponse(data);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Network error';
     console.error('[API] Request failed:', errorMsg);
@@ -141,7 +159,7 @@ async function uploadRequest<T>(
       throw new Error(data.error || `HTTP ${response.status}`);
     }
 
-    return data;
+    return handleApiResponse(data);
   } catch (error) {
     console.error('Upload failed:', error);
     return {

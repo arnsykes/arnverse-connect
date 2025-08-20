@@ -16,15 +16,27 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- Mulai transaksi
 START TRANSACTION;
 
--- Tambahkan kolom is_active ke tabel users jika belum ada
+-- Tambahkan kolom yang hilang ke tabel users
 ALTER TABLE users 
-ADD COLUMN IF NOT EXISTS is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER is_admin;
+ADD COLUMN IF NOT EXISTS is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER is_admin,
+ADD COLUMN IF NOT EXISTS last_login DATETIME NULL AFTER is_active;
 
--- Update semua user yang sudah ada agar is_active = 1 (aktif)
+-- Tambahkan kolom is_active ke posts dan stories jika belum ada
+ALTER TABLE posts 
+ADD COLUMN IF NOT EXISTS is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER is_pinned;
+
+ALTER TABLE stories 
+ADD COLUMN IF NOT EXISTS is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER is_exclusive;
+
+-- Update data yang sudah ada
 UPDATE users SET is_active = 1 WHERE is_active IS NULL OR is_active = 0;
+UPDATE posts SET is_active = 1 WHERE is_active IS NULL OR is_active = 0;
+UPDATE stories SET is_active = 1 WHERE is_active IS NULL OR is_active = 0;
 
 -- Tambahkan index untuk performa
 ALTER TABLE users ADD INDEX IF NOT EXISTS idx_is_active (is_active);
+ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_is_active (is_active);
+ALTER TABLE stories ADD INDEX IF NOT EXISTS idx_is_active (is_active);
 
 -- Commit transaksi
 COMMIT;

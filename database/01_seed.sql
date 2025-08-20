@@ -56,9 +56,9 @@ SELECT id INTO @h_mobiledev FROM hashtags WHERE name = '#mobiledev' LIMIT 1;
 
 INSERT INTO users (
     username, email, password_hash, display_name, bio, avatar, 
-    is_verified, is_private, is_exclusive, is_admin,
+    is_verified, is_private, is_exclusive, is_admin, is_active,
     created_at, updated_at
-) VALUES 
+) VALUES
 (
     'alice_cosmic', 
     'alice@arnverse.com', 
@@ -66,7 +66,7 @@ INSERT INTO users (
     'Alice Cooper', 
     'Tech enthusiast & ARNVERSE early adopter 🚀\nSuka coding dan berbagi tips teknologi!',
     NULL,
-    1, 0, 0, 0,
+    1, 0, 0, 0, 1,
     DATE_SUB(NOW(), INTERVAL 30 DAY),
     NOW()
 ),
@@ -77,7 +77,7 @@ INSERT INTO users (
     'Bob Developer', 
     'Full-stack developer 💻\nMembangun masa depan dengan kode',
     NULL,
-    0, 0, 0, 0,
+    0, 0, 0, 0, 1,
     DATE_SUB(NOW(), INTERVAL 15 DAY),
     NOW()
 ),
@@ -88,7 +88,7 @@ INSERT INTO users (
     'Charlie Designer', 
     'UI/UX Designer ✨\nMembuat pengalaman digital yang indah',
     NULL,
-    1, 0, 0, 0,
+    1, 0, 0, 0, 1,
     DATE_SUB(NOW(), INTERVAL 7 DAY),
     NOW()
 )
@@ -300,30 +300,30 @@ WHERE NOT EXISTS (
 -- ===================================================================
 -- 8. LIKES DEMO
 -- ===================================================================
--- Likes untuk posts
-INSERT INTO likes (user_id, likeable_type, likeable_id, created_at)
-SELECT @u_bob, 'post', @p_alice_1, DATE_SUB(NOW(), INTERVAL 1 DAY)
-WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_bob AND likeable_type = 'post' AND likeable_id = @p_alice_1);
+-- Likes untuk posts - Dual support: both polymorphic and direct post_id
+INSERT INTO likes (user_id, post_id, likeable_type, likeable_id, created_at)
+SELECT @u_bob, @p_alice_1, 'post', @p_alice_1, DATE_SUB(NOW(), INTERVAL 1 DAY)
+WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_bob AND post_id = @p_alice_1);
 
-INSERT INTO likes (user_id, likeable_type, likeable_id, created_at)
-SELECT @u_charlie, 'post', @p_alice_1, DATE_SUB(NOW(), INTERVAL 1 DAY)
-WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_charlie AND likeable_type = 'post' AND likeable_id = @p_alice_1);
+INSERT INTO likes (user_id, post_id, likeable_type, likeable_id, created_at)
+SELECT @u_charlie, @p_alice_1, 'post', @p_alice_1, DATE_SUB(NOW(), INTERVAL 1 DAY)
+WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_charlie AND post_id = @p_alice_1);
 
-INSERT INTO likes (user_id, likeable_type, likeable_id, created_at)
-SELECT @u_alice, 'post', @p_bob_1, DATE_SUB(NOW(), INTERVAL 12 HOUR)
-WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_alice AND likeable_type = 'post' AND likeable_id = @p_bob_1);
+INSERT INTO likes (user_id, post_id, likeable_type, likeable_id, created_at)
+SELECT @u_alice, @p_bob_1, 'post', @p_bob_1, DATE_SUB(NOW(), INTERVAL 12 HOUR)
+WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_alice AND post_id = @p_bob_1);
 
-INSERT INTO likes (user_id, likeable_type, likeable_id, created_at)
-SELECT @u_charlie, 'post', @p_bob_1, DATE_SUB(NOW(), INTERVAL 10 HOUR)
-WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_charlie AND likeable_type = 'post' AND likeable_id = @p_bob_1);
+INSERT INTO likes (user_id, post_id, likeable_type, likeable_id, created_at)
+SELECT @u_charlie, @p_bob_1, 'post', @p_bob_1, DATE_SUB(NOW(), INTERVAL 10 HOUR)
+WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_charlie AND post_id = @p_bob_1);
 
-INSERT INTO likes (user_id, likeable_type, likeable_id, created_at)
-SELECT @u_alice, 'post', @p_charlie_1, DATE_SUB(NOW(), INTERVAL 4 HOUR)
-WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_alice AND likeable_type = 'post' AND likeable_id = @p_charlie_1);
+INSERT INTO likes (user_id, post_id, likeable_type, likeable_id, created_at)
+SELECT @u_alice, @p_charlie_1, 'post', @p_charlie_1, DATE_SUB(NOW(), INTERVAL 4 HOUR)
+WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_alice AND post_id = @p_charlie_1);
 
-INSERT INTO likes (user_id, likeable_type, likeable_id, created_at)
-SELECT @u_bob, 'post', @p_charlie_1, DATE_SUB(NOW(), INTERVAL 3 HOUR)
-WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_bob AND likeable_type = 'post' AND likeable_id = @p_charlie_1);
+INSERT INTO likes (user_id, post_id, likeable_type, likeable_id, created_at)
+SELECT @u_bob, @p_charlie_1, 'post', @p_charlie_1, DATE_SUB(NOW(), INTERVAL 3 HOUR)
+WHERE NOT EXISTS (SELECT 1 FROM likes WHERE user_id = @u_bob AND post_id = @p_charlie_1);
 
 -- ===================================================================
 -- 9. STORIES DEMO (BELUM EXPIRED)

@@ -42,7 +42,9 @@ CREATE TABLE IF NOT EXISTS users (
     is_private TINYINT(1) DEFAULT 0,
     is_verified TINYINT(1) DEFAULT 0,
     is_admin TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
     email_verified_at DATETIME NULL,
+    last_login DATETIME NULL,
     posts_count INT DEFAULT 0,
     followers_count INT DEFAULT 0,
     following_count INT DEFAULT 0,
@@ -76,17 +78,15 @@ CREATE TABLE IF NOT EXISTS user_settings (
 -- Tabel user_sessions (sesi login)
 CREATE TABLE IF NOT EXISTS user_sessions (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    token VARCHAR(255) NOT NULL UNIQUE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
     user_id INT NOT NULL,
     user_agent VARCHAR(500),
-    ip_address VARCHAR(45),
+    ip VARCHAR(45),
+    expires_at DATETIME NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expired_at TIMESTAMP NULL,
-    last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_token (token),
-    INDEX idx_user_id (user_id),
-    INDEX idx_expired_at (expired_at)
+    INDEX idx_token_hash (token_hash),
+    INDEX idx_user_expires (user_id, expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tabel posts (postingan)
@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS posts (
     shares_count INT DEFAULT 0,
     views_count INT DEFAULT 0,
     is_pinned TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -134,16 +135,20 @@ CREATE TABLE IF NOT EXISTS comments (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Tabel likes (suka/tidak suka)
+-- Tabel likes (suka/tidak suka) - Dual support: polymorphic + direct post_id
 CREATE TABLE IF NOT EXISTS likes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    likeable_type ENUM('post', 'comment', 'story') NOT NULL,
-    likeable_id INT NOT NULL,
+    post_id INT NULL,
+    likeable_type ENUM('post', 'comment', 'story') NULL,
+    likeable_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_like (user_id, likeable_type, likeable_id),
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_like_poly (user_id, likeable_type, likeable_id),
+    UNIQUE KEY unique_like_post (user_id, post_id),
     INDEX idx_user_id (user_id),
+    INDEX idx_post_id (post_id),
     INDEX idx_likeable (likeable_type, likeable_id),
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -201,6 +206,7 @@ CREATE TABLE IF NOT EXISTS stories (
     views_count INT DEFAULT 0,
     likes_count INT DEFAULT 0,
     is_exclusive TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
     expired_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

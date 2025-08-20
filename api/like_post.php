@@ -53,10 +53,10 @@ try {
     
     $db->beginTransaction();
     
-    // Cek apakah user sudah like post ini (using simple post_id column)
+    // Cek apakah user sudah like post ini (dual support: post_id or polymorphic)
     $existingLike = $db->fetch(
-        "SELECT id FROM likes WHERE user_id = ? AND post_id = ?",
-        [$userId, $postId]
+        "SELECT id FROM likes WHERE user_id = ? AND (post_id = ? OR (likeable_type = 'post' AND likeable_id = ?))",
+        [$userId, $postId, $postId]
     );
     
     $isLiked = false;
@@ -64,15 +64,15 @@ try {
     if ($existingLike) {
         // Unlike - hapus like
         $db->execute(
-            "DELETE FROM likes WHERE user_id = ? AND post_id = ?",
-            [$userId, $postId]
+            "DELETE FROM likes WHERE user_id = ? AND (post_id = ? OR (likeable_type = 'post' AND likeable_id = ?))",
+            [$userId, $postId, $postId]
         );
         $action = 'unliked';
     } else {
-        // Like - tambah like
+        // Like - tambah like (dual columns for compatibility)
         $db->execute(
-            "INSERT INTO likes (user_id, post_id, created_at) VALUES (?, ?, NOW())",
-            [$userId, $postId]
+            "INSERT INTO likes (user_id, post_id, likeable_type, likeable_id, created_at) VALUES (?, ?, 'post', ?, NOW())",
+            [$userId, $postId, $postId]
         );
         $isLiked = true;
         $action = 'liked';
@@ -89,8 +89,8 @@ try {
     
     $db->commit();
     
-    // Get updated like count
-    $likeCount = $db->fetch("SELECT COUNT(*) as count FROM likes WHERE post_id = ?", [$postId])['count'];
+    // Get updated like count (dual support)
+    $likeCount = $db->fetch("SELECT COUNT(*) as count FROM likes WHERE post_id = ? OR (likeable_type = 'post' AND likeable_id = ?)", [$postId, $postId])['count'];
     
     $response = [
         'post_id' => $postId,

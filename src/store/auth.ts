@@ -10,13 +10,15 @@ import { toast } from '@/hooks/use-toast';
 
 // Type definitions
 interface User {
-  id: string;
+  id: number;
   username: string;
   display_name: string;
   email: string;
   bio?: string;
   avatar?: string;
   is_verified?: boolean;
+  is_admin?: boolean;
+  created_at?: string;
 }
 
 interface AuthResponse {
@@ -63,10 +65,23 @@ export const useAuthStore = create<AuthState>()(
             const authData = response.data as AuthResponse;
             const { token, user } = authData;
             
+            // Ensure user data has safe defaults
+            const safeUser = {
+              id: user?.id || 0,
+              username: user?.username || '',
+              email: user?.email || '',
+              display_name: user?.display_name || 'Unknown User',
+              bio: user?.bio || null,
+              avatar: user?.avatar || null,
+              is_verified: Boolean(user?.is_verified),
+              is_admin: Boolean(user?.is_admin),
+              created_at: user?.created_at || new Date().toISOString(),
+            };
+            
             // Save token dan user
             set({ 
               token, 
-              user, 
+              user: safeUser, 
               status: 'authenticated' 
             });
             
@@ -75,7 +90,7 @@ export const useAuthStore = create<AuthState>()(
             
             toast({
               title: "Selamat datang!",
-              description: `Halo ${user.display_name || user.username}! Selamat datang di ARNVERSE`,
+              description: `Halo ${safeUser.display_name || safeUser.username}! Selamat datang di ARNVERSE`,
             });
             
             return true;
@@ -186,8 +201,22 @@ export const useAuthStore = create<AuthState>()(
           
           if (response.ok && response.data && typeof response.data === 'object' && 'user' in response.data) {
             const userData = (response.data as { user: User }).user;
+            
+            // Ensure user data has safe defaults
+            const safeUser = {
+              id: userData?.id || 0,
+              username: userData?.username || '',
+              email: userData?.email || '',
+              display_name: userData?.display_name || 'Unknown User',
+              bio: userData?.bio || null,
+              avatar: userData?.avatar || null,
+              is_verified: Boolean(userData?.is_verified),
+              is_admin: Boolean(userData?.is_admin),
+              created_at: userData?.created_at || new Date().toISOString(),
+            };
+            
             set({ 
-              user: userData, 
+              user: safeUser, 
               token: currentToken,
               status: 'authenticated' 
             });

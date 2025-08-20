@@ -85,50 +85,29 @@ class Auth {
     }
 
     /**
-     * Simpan session ke database
+     * Validate secure token (non-JWT)
      */
-    public static function saveSession($token, $userId, $userAgent = null, $ipAddress = null) {
-        $db = getDB();
-        // Only save if user_sessions table exists
-        if (!$db->tableExists('user_sessions')) {
-            return true;
+    public static function validateSecureToken($token) {
+        if (!$token || strlen($token) !== 64) {
+            return false;
         }
-        
-        $expiredAt = date('Y-m-d H:i:s', time() + (JWT_EXPIRE_HOURS * 3600));
-        
-        $sql = "INSERT INTO user_sessions (token_hash, user_id, user_agent, ip, expires_at, created_at) 
-                VALUES (?, ?, ?, ?, ?, NOW())";
-        
-        return $db->execute($sql, [hash('sha256', $token), $userId, $userAgent, $ipAddress, $expiredAt]);
+        return ctype_xdigit($token); // Valid hex string
     }
 
     /**
-     * Hapus session dari database
-     */
-    public static function removeSession($token) {
-        $db = getDB();
-        // Only remove if user_sessions table exists
-        if (!$db->tableExists('user_sessions')) {
-            return true;
-        }
-        return $db->execute("DELETE FROM user_sessions WHERE token_hash = ?", [hash('sha256', $token)]);
-    }
-
-    /**
-     * Cek apakah session masih valid di database
+     * Check session validity using token hash
      */
     public static function isSessionValid($token, $userId) {
         $db = getDB();
-        // If user_sessions table doesn't exist, rely on JWT validation only
-        if (!$db->tableExists('user_sessions')) {
-            return true;
-        }
-        
-        $session = $db->fetch(
-            "SELECT id FROM user_sessions WHERE token_hash = ? AND user_id = ? AND expires_at > NOW()",
-            [hash('sha256', $token), $userId]
-        );
-        return $session !== false;
+        return $db->safeCheckSession(hash('sha256', $token), $userId);
+    }
+
+    /**
+     * Remove session from database
+     */
+    public static function removeSession($token) {
+        $db = getDB();
+        return $db->safeDeleteSession(hash('sha256', $token));
     }
 
     /**
@@ -151,7 +130,7 @@ class Auth {
 
 /**
  * Middleware: Require Authentication
- * Panggil di awal setiap endpoint yang butuh auth
+ * Supports both JWT and secure token authentication
  */
 function require_auth() {
     $token = Auth::getBearerToken();
@@ -162,25 +141,33 @@ function require_auth() {
         exit;
     }
 
-    $payload = Auth::validateJWT($token);
-    if (!$payload) {
-        http_response_code(401);
-        sendResponse(false, null, 'Token tidak valid atau expired');
-        exit;
+    $user = null;
+    
+    // Try secure token first (64-char hex)
+    if (Auth::validateSecureToken($token)) {
+        // Extract user_id from session
+        $db = getDB();
+        if ($db->tableExists('user_sessions')) {
+            $session = $db->fetch(
+                "SELECT user_id FROM user_sessions WHERE token_hash = ? AND expires_at > NOW()",
+                [hash('sha256', $token)]
+            );
+            
+            if ($session) {
+                $user = Auth::getUserById($session['user_id']);
+            }
+        }
+    } else {
+        // Fallback: Try JWT validation
+        $payload = Auth::validateJWT($token);
+        if ($payload && Auth::isSessionValid($token, $payload['uid'])) {
+            $user = Auth::getUserById($payload['uid']);
+        }
     }
 
-    // Cek session di database
-    if (!Auth::isSessionValid($token, $payload['uid'])) {
-        http_response_code(401);
-        sendResponse(false, null, 'Session tidak valid');
-        exit;
-    }
-
-    // Ambil data user
-    $user = Auth::getUserById($payload['uid']);
     if (!$user) {
         http_response_code(401);
-        sendResponse(false, null, 'User tidak ditemukan');
+        sendResponse(false, null, 'Token tidak valid atau expired');
         exit;
     }
 

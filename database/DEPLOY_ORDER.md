@@ -1,120 +1,111 @@
-# 🗄️ ARNVERSE Database - Urutan Import
+# ARNVERSE Database Deployment Order
 
-**PENTING**: Import file SQL harus berurutan untuk menghindari dependency error.
+## 📋 Urutan Import SQL yang Benar
 
-## 📋 Urutan Import (WAJIB)
+Untuk memastikan database ARNVERSE berfungsi dengan baik di cPanel/phpMyAdmin, ikuti urutan import yang tepat:
 
-### 1. Schema Struktur
+### 1. 00_schema.sql
+**Tujuan:** Membuat semua tabel dan struktur database dasar
 ```sql
-database/00_schema.sql
+-- Import pertama: struktur database lengkap
+-- File: database/00_schema.sql
 ```
-- ✅ Membuat semua tabel inti
-- ✅ Index dan constraints
-- ✅ Struktur relasi antar tabel
 
-### 2. Data Seed  
-```sql
-database/01_seed.sql
+**Yang dibuat:**
+- Semua tabel utama (users, posts, likes, stories, dll)
+- Foreign key relationships
+- Indexes untuk performa
+- Triggers untuk auto-update counters
+
+### 2. 01_seed.sql  
+**Tujuan:** Mengisi database dengan data demo yang idempotent
+```sql  
+-- Import kedua: data demo dan testing
+-- File: database/01_seed.sql
 ```
-- ✅ User demo (alice, bob, charlie)
-- ✅ Hashtag populer
-- ✅ Post contoh
-- ✅ Relasi follows, likes, comments
-- ✅ Stories dan chat data
 
-### 3. Migrasi & Patches
+**Yang dibuat:**
+- 3 user demo: alice@arnverse.com, dev@arnverse.com, charlie@arnverse.com
+- Password semua user: `password`
+- Post demo, hashtags, comments, likes
+- Stories demo yang belum expired
+
+### 3. 02_fix_users_flags.sql
+**Tujuan:** Menambah kolom yang dibutuhkan backend PHP
 ```sql
-database/02_fix_users_flags.sql
+-- Import ketiga: tambah kolom is_active, last_login
+-- File: database/02_fix_users_flags.sql
 ```
-- ✅ Kolom `is_active` di tabel users
-- ✅ Index tambahan untuk performa
-- ✅ Record migrations
 
-### 4. Stored Procedures (Opsional)
+**Yang ditambahkan:**
+- `users.is_active TINYINT(1) DEFAULT 1`
+- `users.last_login DATETIME NULL`
+- `posts.is_active TINYINT(1) DEFAULT 1`
+- `stories.is_active TINYINT(1) DEFAULT 1`
+
+### 4. 03_fix_user_sessions.sql
+**Tujuan:** Migrasi user_sessions ke token hashing yang aman
 ```sql
-database/02_migrations.sql
+-- Import keempat: perbaiki session management
+-- File: database/03_fix_user_sessions.sql
 ```
-- ✅ Maintenance procedures
-- ✅ Auto cleanup functions
-- ✅ Migration tracking
 
-## 🔍 Verifikasi Setelah Import
+**Yang diperbaiki:**
+- Ganti `token` dengan `token_hash CHAR(64)`
+- Tambah `expires_at DATETIME NOT NULL`
+- Update indexes untuk performa
+- Cleanup session expired
+
+## 🧪 Verifikasi Setelah Import
+
+Jalankan query ini di phpMyAdmin untuk memastikan import berhasil:
 
 ```sql
--- 1. Cek struktur tabel users
+-- Cek jumlah data
+SELECT 'users' as tabel, COUNT(*) as jumlah FROM users
+UNION SELECT 'posts', COUNT(*) FROM posts  
+UNION SELECT 'hashtags', COUNT(*) FROM hashtags
+UNION SELECT 'likes', COUNT(*) FROM likes
+UNION SELECT 'stories', COUNT(*) FROM stories;
+
+-- Cek struktur tabel users
 DESCRIBE users;
--- Harus ada kolom: is_active TINYINT(1) DEFAULT 1
 
--- 2. Cek jumlah data seed
-SELECT 
-  (SELECT COUNT(*) FROM users) as users_count,
-  (SELECT COUNT(*) FROM posts) as posts_count,
-  (SELECT COUNT(*) FROM hashtags) as hashtags_count,
-  (SELECT COUNT(*) FROM likes WHERE likeable_type='post') as likes_count;
--- Expected: users=3, posts≥4, hashtags=10, likes≥6
+-- Cek struktur user_sessions
+DESCRIBE user_sessions;
 
--- 3. Test user login demo
-SELECT username, email, is_active, is_verified 
-FROM users WHERE email = 'alice@arnverse.com';
--- Expected: alice_cosmic, is_active=1, is_verified=1
-
--- 4. Cek migrasi tercatat
-SELECT migration, batch, ran_at FROM migrations ORDER BY ran_at;
--- Harus ada record migrations
+-- Cek akun demo bisa login
+SELECT username, email, is_active FROM users WHERE email = 'alice@arnverse.com';
 ```
 
-## ⚠️ Error Handling
+**Expected Results:**
+- users: 3 records
+- posts: 4+ records  
+- hashtags: 10+ records
+- likes: 6+ records
+- stories: 3+ records
 
-### "Table already exists"
-- ✅ **Normal** - semua tabel menggunakan `CREATE TABLE IF NOT EXISTS`
-- ✅ Lanjutkan import file berikutnya
+## ⚠️ Troubleshooting
 
-### "Unknown column 'is_active'"  
-- ❌ File 02_fix_users_flags.sql belum diimport
-- 🔧 Import file tersebut sebelum test API login
+### Error: Table doesn't exist
+- **Solusi:** Import 00_schema.sql terlebih dahulu
 
-### "Duplicate entry" di seed data
-- ✅ **Normal** - seed menggunakan `INSERT IGNORE` dan `WHERE NOT EXISTS`
-- ✅ Data tidak akan duplikat
+### Error: Column 'is_active' doesn't exist  
+- **Solusi:** Import 02_fix_users_flags.sql
 
-### Foreign key constraint fails
-- ❌ Urutan import salah atau ada file tertinggal
-- 🔧 Drop semua tabel, import ulang berurutan
+### Error: Duplicate entry
+- **Solusi:** File seed idempotent, aman dijalankan berulang
 
-## 🧪 Test Commands
+### Error: Cannot add foreign key constraint
+- **Solusi:** Pastikan urutan import sesuai, 00_schema.sql → 01_seed.sql
 
-```sql
--- Test password hash (harus return 1)
-SELECT password_verify('password', password_hash) as is_valid
-FROM users WHERE email = 'alice@arnverse.com';
+## 🚀 Ready untuk Production
 
--- Test relasi posts-likes
-SELECT p.content, COUNT(l.id) as likes_count
-FROM posts p
-LEFT JOIN likes l ON l.likeable_type = 'post' AND l.likeable_id = p.id
-GROUP BY p.id;
+Setelah semua file diimport dengan sukses:
 
--- Test hashtag relationships
-SELECT h.name, COUNT(ph.post_id) as posts_count
-FROM hashtags h
-LEFT JOIN post_hashtags ph ON ph.hashtag_id = h.id  
-GROUP BY h.id;
-```
+1. **Test login:** `alice@arnverse.com` / `password`
+2. **Test API:** `GET /api/auth.php` dengan Bearer token
+3. **Test feed:** `GET /api/feed.php` menampilkan posts
+4. **Test stories:** `GET /api/stories.php` menampilkan stories aktif
 
-## 🔄 Reset Database (Jika Perlu)
-
-```sql
--- DANGER: Hapus semua data (untuk fresh start)
-SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS migrations, system_settings, user_sessions, 
-  user_settings, public_chat_messages, messages, chat_participants, 
-  chats, notifications, bookmarks, story_likes, story_views, stories, 
-  likes, comments, post_hashtags, posts, hashtags, follows, users;
-SET FOREIGN_KEY_CHECKS = 1;
-
--- Kemudian import ulang: 00_schema.sql → 01_seed.sql → 02_fix_users_flags.sql
-```
-
----
-
-**💡 Tips**: Gunakan phpMyAdmin import dengan encoding **UTF-8** dan pastikan tidak ada timeout.
+Database siap untuk deployment! 🎉

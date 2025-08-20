@@ -60,9 +60,13 @@ try {
         exit;
     }
     
-    // Generate token dan simpan session
-    $token = Auth::generateJWT($user['id']);
-    Auth::saveSession($token, $user['id'], getUserAgent(), getClientIP());
+    // Generate secure token
+    $token = bin2hex(random_bytes(32)); // 64 char hex string
+    $tokenHash = hash('sha256', $token);
+    $expiresAt = date('Y-m-d H:i:s', time() + (7 * 24 * 3600)); // 7 days
+    
+    // Save session (safe method)
+    $db->safeInsertSession($tokenHash, $user['id'], getUserAgent(), getClientIP(), $expiresAt);
     
     // Update last login (if column exists)
     $db->safeUpdateLastLogin($user['id']);

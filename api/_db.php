@@ -112,6 +112,35 @@ class Database {
         }
         return true;
     }
+    
+    public function safeInsertSession($tokenHash, $userId, $userAgent, $ip, $expiresAt) {
+        if ($this->tableExists('user_sessions')) {
+            return $this->execute(
+                "INSERT INTO user_sessions (token_hash, user_id, user_agent, ip, expires_at) VALUES (?, ?, ?, ?, ?)",
+                [$tokenHash, $userId, $userAgent, $ip, $expiresAt]
+            );
+        }
+        return true;
+    }
+    
+    public function safeDeleteSession($tokenHash) {
+        if ($this->tableExists('user_sessions')) {
+            return $this->execute("DELETE FROM user_sessions WHERE token_hash = ?", [$tokenHash]);
+        }
+        return true;
+    }
+    
+    public function safeCheckSession($tokenHash, $userId) {
+        if (!$this->tableExists('user_sessions')) {
+            return true; // If no sessions table, rely on JWT only
+        }
+        
+        $session = $this->fetch(
+            "SELECT id FROM user_sessions WHERE token_hash = ? AND user_id = ? AND expires_at > NOW()",
+            [$tokenHash, $userId]
+        );
+        return $session !== false;
+    }
 }
 
 // Helper function untuk mendapatkan koneksi database
