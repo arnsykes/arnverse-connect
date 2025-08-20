@@ -1,13 +1,15 @@
 # ===================================================================
-# ARNVERSE SPA Routing Configuration untuk cPanel/LiteSpeed
+# ARNVERSE SPA Routing Configuration untuk cPanel/LiteSpeed  
 # File ini harus ditempatkan di: /public_html/arnworld.space/.htaccess
 # ===================================================================
 
-# Disable MultiViews untuk menghindari konflik dengan SPA routing
-Options -MultiViews
+# Disable indexes dan MultiViews untuk keamanan dan mencegah konflik SPA routing
+Options -Indexes -MultiViews
+DirectoryIndex index.html
 
-# Enable RewriteEngine
+<IfModule mod_rewrite.c>
 RewriteEngine On
+RewriteBase /
 
 # ===================================================================
 # STEP 1: Layani file dan folder yang benar-benar ada
@@ -32,6 +34,8 @@ RewriteRule ^api/ - [L]
 # yang bukan file/folder nyata dan bukan API, arahkan ke index.html
 # sehingga React Router dapat menangani routing client-side
 RewriteRule ^ index.html [L]
+
+</IfModule>
 
 # ===================================================================
 # Security Headers (opsional, untuk keamanan tambahan)

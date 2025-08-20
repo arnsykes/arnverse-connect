@@ -79,9 +79,103 @@ npm run build
 npm run preview
 ```
 
-## 🌐 Deploy ke cPanel
+## 🌐 Deploy ke cPanel/LiteSpeed
 
-Lihat panduan lengkap di **[DEPLOY-CPANEL.md](./DEPLOY-CPANEL.md)** untuk instruksi deploy ke shared hosting cPanel.
+### Prasyarat Deploy
+- cPanel hosting dengan PHP 8+ dan MySQL 
+- Database sudah dibuat di cPanel (contoh: `arnn8651_arnverse`)
+- phpMyAdmin akses untuk import SQL
+- Node.js 18+ di lokal untuk build
+
+### Langkah-langkah Deploy
+
+#### 1. **Persiapan Database**
+```bash
+# Di phpMyAdmin, pilih database yang sudah dibuat
+# Import berurutan (PENTING: urutan harus tepat):
+1. Import database/00_schema.sql    # Struktur tabel
+2. Import database/01_seed.sql      # Data demo  
+3. Import database/02_fix_users_flags.sql  # Fix kolom is_active
+```
+
+#### 2. **Build Frontend**
+```bash
+# Di lokal, build aplikasi React
+npm ci
+npm run build
+
+# Upload isi folder dist/ ke /public_html/arnworld.space/
+# Pastikan struktur:
+# /public_html/arnworld.space/
+#   ├── index.html
+#   ├── assets/
+#   └── .htaccess
+```
+
+#### 3. **Upload Backend API**
+```bash
+# Upload folder api/ ke /public_html/arnworld.space/api/
+# Set permission:
+# - Folder api/: 0755
+# - File *.php: 0644
+```
+
+#### 4. **Konfigurasi Environment**
+```bash
+# Buat file api/.env dengan isi:
+DB_HOST=localhost
+DB_NAME=arnn8651_arnverse  # sesuaikan dengan nama DB Anda
+DB_USER=arnn8651_arnverse  # sesuaikan dengan user DB Anda  
+DB_PASS=your_db_password   # password DB cPanel
+JWT_SECRET=your_jwt_secret_32_chars_min
+
+# Generate JWT_SECRET dengan:
+# php -r "echo bin2hex(random_bytes(32));"
+```
+
+#### 5. **Upload .htaccess untuk SPA Routing**
+```apache
+# Pastikan file .htaccess ada di root (/public_html/arnworld.space/.htaccess)
+# dengan konten yang mendukung React Router
+```
+
+#### 6. **Testing Deployment**
+```bash
+# Test routing SPA:
+https://arnworld.space/login     # Harus tidak 404
+
+# Test API:
+POST https://arnworld.space/api/login.php
+{
+  "email": "alice@arnverse.com",
+  "password": "password"
+}
+# Response: {"ok": true, "data": {...}}
+
+# Test database:
+# Login dengan akun demo: alice@arnverse.com / password
+```
+
+### Troubleshooting cPanel
+
+🔧 **404 pada /login atau routes lain**
+- Pastikan `index.html` ada di root domain
+- Cek `.htaccess` ada dan benar
+- Purge cache LiteSpeed di cPanel → LiteSpeed Cache
+
+🔧 **500 Error pada API**  
+- Cek `error_log` di cPanel File Manager
+- Pastikan `api/.env` ada dengan kredensial DB benar
+- Cek permission folder `api/` = 0755, file `*.php` = 0644
+
+🔧 **Database Error "Unknown column 'is_active'"**
+- Import `02_fix_users_flags.sql` untuk menambah kolom yang hilang
+- Pastikan urutan import SQL benar: schema → seed → fix
+
+🔧 **Login API Error**
+- Cek kredensial database di `api/.env`  
+- Pastikan user demo ada: `SELECT * FROM users WHERE email='alice@arnverse.com'`
+- Test hash password: `SELECT password_verify('password', password_hash) FROM users...`
 
 ## 📖 API Integration
 
