@@ -1,0 +1,90 @@
+name: Build Release Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build frontend
+      run: npm run build
+      
+    - name: Create release directory
+      run: mkdir -p release
+      
+    - name: Package frontend build
+      run: |
+        cd dist
+        zip -r ../release/dist_cpanel_${{ github.event.inputs.version }}.zip .
+        cd ..
+        
+    - name: Package API files
+      run: |
+        zip -r release/api_${{ github.event.inputs.version }}.zip api/ \
+          --exclude="api/test_db.php" \
+          --exclude="api/.env" \
+          database/ \
+          docs/ \
+          DEPLOY-CPANEL.md \
+          TESTING-CHECKLIST.md \
+          README.md
+          
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: arnverse-release-${{ github.event.inputs.version }}
+        path: release/
+        retention-days: 30
+        
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.event.inputs.version }}
+        release_name: ARNVERSE ${{ github.event.inputs.version }}
+        body: |
+          ## 🚀 ARNVERSE Release ${{ github.event.inputs.version }}
+          
+          ### 📦 Downloads
+          - `dist_cpanel_${{ github.event.inputs.version }}.zip` - Frontend build untuk cPanel
+          - `api_${{ github.event.inputs.version }}.zip` - Backend PHP + dokumentasi
+          
+          ### 🔧 Deploy Instructions
+          1. Download kedua file zip
+          2. Ikuti panduan di `DEPLOY-CPANEL.md`
+          3. Import database dari folder `database/`
+          4. Test dengan checklist di `TESTING-CHECKLIST.md`
+          
+          ### ✨ What's New
+          - Robust authentication system
+          - Idempotent database seeding
+          - Complete cPanel deployment guide
+          - SPA routing untuk LiteSpeed
+          - Polymorphic likes system
+          
+          ### 🧪 Demo Accounts
+          - `alice@arnverse.com` / `password`
+          - `dev@arnverse.com` / `password`
+          - `charlie@arnverse.com` / `password`
+        draft: false
+        prerelease: false

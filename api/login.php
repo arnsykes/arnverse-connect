@@ -36,10 +36,11 @@ try {
     
     $db = getDB();
     
-    // Cek user berdasarkan email
+    // Cek user berdasarkan email dengan COALESCE untuk backward compatibility
     $user = $db->fetch(
-        "SELECT id, username, email, display_name, bio, avatar, password_hash, is_verified, is_admin, is_active 
-         FROM users WHERE email = ?",
+        "SELECT id, username, email, display_name, bio, avatar, password_hash, is_verified, 
+                COALESCE(is_admin, 0) as is_admin, COALESCE(is_active, 1) as is_active 
+         FROM users WHERE email = ? LIMIT 1",
         [$email]
     );
     

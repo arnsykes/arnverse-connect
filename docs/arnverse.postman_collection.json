@@ -1,0 +1,429 @@
+{
+  "info": {
+    "name": "ARNVERSE API Collection",
+    "description": "Complete API collection for ARNVERSE social media platform",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://arnworld.space/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.ok && response.data.token) {",
+                  "        pm.collectionVariables.set('auth_token', response.data.token);",
+                  "        console.log('Token saved:', response.data.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@arnverse.com\",\n  \"password\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login.php",
+              "host": ["{{base_url}}"],
+              "path": ["login.php"]
+            },
+            "description": "Login with demo user alice@arnverse.com"
+          }
+        },
+        {
+          "name": "Check Auth",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth.php",
+              "host": ["{{base_url}}"],
+              "path": ["auth.php"]
+            },
+            "description": "Verify current user authentication"
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST", 
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"newuser\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/register.php",
+              "host": ["{{base_url}}"],
+              "path": ["register.php"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/logout.php",
+              "host": ["{{base_url}}"],
+              "path": ["logout.php"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Posts & Feed",
+      "item": [
+        {
+          "name": "Get Feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feed.php?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["feed.php"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit", 
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Post",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "content",
+                  "value": "Test post from Postman! #test #api",
+                  "type": "text"
+                },
+                {
+                  "key": "media_type",
+                  "value": "none",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/post.php",
+              "host": ["{{base_url}}"],
+              "path": ["post.php"]
+            }
+          }
+        },
+        {
+          "name": "Like Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"post_id\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/like_post.php",
+              "host": ["{{base_url}}"],
+              "path": ["like_post.php"]
+            }
+          }
+        },
+        {
+          "name": "Comment on Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"post_id\": \"1\",\n  \"content\": \"Great post! Testing comment from API.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/comment_post.php",
+              "host": ["{{base_url}}"],
+              "path": ["comment_post.php"]
+            }
+          }
+        },
+        {
+          "name": "Get Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/get_comments.php?post_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["get_comments.php"],
+              "query": [
+                {
+                  "key": "post_id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stories",
+      "item": [
+        {
+          "name": "Get Stories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stories.php",
+              "host": ["{{base_url}}"],
+              "path": ["stories.php"]
+            }
+          }
+        },
+        {
+          "name": "View Story",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"story_id\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/story_view.php",
+              "host": ["{{base_url}}"],
+              "path": ["story_view.php"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/profile.php?username=alice_cosmic",
+              "host": ["{{base_url}}"],
+              "path": ["profile.php"],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "alice_cosmic"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messaging",
+      "item": [
+        {
+          "name": "Get Inbox",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/inbox.php",
+              "host": ["{{base_url}}"],
+              "path": ["inbox.php"]
+            }
+          }
+        },
+        {
+          "name": "Load Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/load_messages.php?chat_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["load_messages.php"],
+              "query": [
+                {
+                  "key": "chat_id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chat_id\": \"1\",\n  \"content\": \"Hello from Postman API test!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/send_message.php",
+              "host": ["{{base_url}}"],
+              "path": ["send_message.php"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications.php?page=1",
+              "host": ["{{base_url}}"],
+              "path": ["notifications.php"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Hashtags",
+      "item": [
+        {
+          "name": "Get Hashtags",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/hashtags.php?trending=true",
+              "host": ["{{base_url}}"],
+              "path": ["hashtags.php"],
+              "query": [
+                {
+                  "key": "trending",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "API Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health.php",
+              "host": ["{{base_url}}"],
+              "path": ["health.php"]
+            },
+            "description": "Check API and database connectivity"
+          }
+        },
+        {
+          "name": "Database Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/test_db.php",
+              "host": ["{{base_url}}"],
+              "path": ["test_db.php"]
+            },
+            "description": "Test database connection specifically"
+          }
+        }
+      ]
+    }
+  ]
+}
