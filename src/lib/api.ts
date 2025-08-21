@@ -13,9 +13,19 @@ import {
   AuthResponseSchema
 } from '@/lib/api/schema';
 
-// Base URLs - ambil dari environment variables dengan fallback yang aman
-const API_BASE_URL = import.meta.env.VITE_API_BASE || 'https://armworld.space/api';
-const MEDIA_BASE_URL = import.meta.env.VITE_MEDIA_BASE || 'https://armworld.space/uploads';
+// Base URLs - ambil dari environment variables dengan fallback yang aman  
+const getApiBaseUrl = () => {
+  // Prioritas: env var → relative path untuk production
+  const envBase = import.meta.env.VITE_API_BASE_URL;
+  if (envBase) return envBase;
+  
+  // Fallback ke path relatif untuk menghindari CORS dan ERR_NAME_NOT_RESOLVED
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+const MEDIA_BASE_URL = import.meta.env.VITE_MEDIA_BASE_URL || `${typeof window !== 'undefined' ? window.location.origin : ''}/uploads`;
 
 // Debug mode untuk development
 const DEBUG_MODE = import.meta.env.VITE_DEBUG_MODE === 'true';
