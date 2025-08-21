@@ -1,14 +1,21 @@
 // ===================================================================
-// ARNVERSE API Client - PHP Backend Integration
+// ARNVERSE API Client - PHP Backend Integration with Validation
 // Menangani semua komunikasi dengan backend PHP di /api
 // ===================================================================
 
 import type { PostUI } from '@/types/social';
 import { mapApiPosts, mapApiComments, mapApiStories } from '@/lib/mappers';
+import { 
+  validateApiResponse, 
+  FeedResponseSchema,
+  CommentsResponseSchema,
+  StoriesResponseSchema,
+  AuthResponseSchema
+} from '@/lib/api/schema';
 
-// Base URLs - ambil dari environment variables dengan fallback
-const API_BASE_URL = import.meta.env.VITE_API_BASE || '/api';
-const MEDIA_BASE_URL = import.meta.env.VITE_MEDIA_BASE || '/uploads';
+// Base URLs - ambil dari environment variables dengan fallback yang aman
+const API_BASE_URL = import.meta.env.VITE_API_BASE || 'https://armworld.space/api';
+const MEDIA_BASE_URL = import.meta.env.VITE_MEDIA_BASE || 'https://armworld.space/uploads';
 
 // Debug mode untuk development
 const DEBUG_MODE = import.meta.env.VITE_DEBUG_MODE === 'true';
@@ -28,23 +35,36 @@ interface ApiResponse<T = any> {
 // Get token from localStorage
 const getToken = () => localStorage.getItem('arn_token');
 
-// Enhanced response handler with data normalization
+// Enhanced response handler with data normalization and validation
 const handleApiResponse = (data: ApiResponse<any>, endpoint?: string) => {
   if (!data?.ok || !data?.data) {
     return data;
   }
 
-  // Apply mappers based on endpoint patterns for automatic normalization
+  // Apply validation and mappers based on endpoint patterns
   try {
     if (endpoint?.includes('feed.php') && Array.isArray(data.data)) {
+      // Validate structure but use original data for mapping to preserve types
+      validateApiResponse(FeedResponseSchema, data, endpoint);
       data.data = mapApiPosts(data.data);
-    } else if (endpoint?.includes('get_comments.php') && data.data?.items) {
+    } else if (endpoint?.includes('get_comments.php') && data?.data?.items) {
+      // Validate structure but use original data for mapping  
+      validateApiResponse(CommentsResponseSchema, data, endpoint);
       data.data = { ...data.data, items: mapApiComments(data.data.items) };
     } else if (endpoint?.includes('stories.php') && Array.isArray(data.data)) {
+      // Validate structure but use original data for mapping
+      validateApiResponse(StoriesResponseSchema, data, endpoint);
       data.data = mapApiStories(data.data);
+    } else if (endpoint?.includes('auth.php') || endpoint?.includes('login.php')) {
+      // For auth endpoints, keep original validation logic
+      const validated = validateApiResponse(AuthResponseSchema, data, endpoint);
+      if (validated?.data) {
+        data.data = validated.data;
+      }
     }
   } catch (error) {
-    console.warn('Data mapping failed for endpoint:', endpoint, error);
+    console.warn(`[API] Data mapping/validation failed for ${endpoint}:`, error);
+    // Continue with original data as fallback
   }
 
   return data;

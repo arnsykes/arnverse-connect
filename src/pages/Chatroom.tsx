@@ -194,24 +194,24 @@ export default function Chatroom() {
                     <div key={message.id} className="flex items-start gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={message.user.avatar} />
-                        <AvatarFallback>
-                          {message.user.display_name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
+                         <AvatarFallback>
+                           {message.user?.display_name?.slice(0, 2)?.toUpperCase() ?? 'AN'}
+                         </AvatarFallback>
                       </Avatar>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm">
-                            {message.user.display_name}
-                          </span>
-                          {message.user.is_verified && (
+                           <span className="font-medium text-sm">
+                             {message.user?.display_name ?? message.user?.username ?? 'Pengguna'}
+                           </span>
+                           {message.user?.is_verified && (
                             <Badge variant="secondary" className="text-xs px-2 py-0.5">
                               ✓
                             </Badge>
                           )}
-                          <span className="text-muted-foreground text-xs">
-                            @{message.user.username}
-                          </span>
+                           <span className="text-muted-foreground text-xs">
+                             @{message.user?.username ?? 'unknown'}
+                           </span>
                           <span className="text-muted-foreground text-xs">
                             {formatTimestamp(message.created_at)}
                           </span>
