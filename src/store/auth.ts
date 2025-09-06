@@ -1,104 +1,134 @@
 // ===================================================================
-// ARNVERSE Auth Store - Manajemen state authentication
+// ARNVERSE Auth Store - Supabase Authentication
 // Menggunakan Zustand untuk state management yang sederhana
 // ===================================================================
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { authApi } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import type { User, Session } from '@supabase/supabase-js';
 
-// Type definitions
-interface User {
-  id: number;
+// Type definitions using Supabase types
+interface Profile {
+  id: string;
+  user_id: string;
   username: string;
   display_name: string;
-  email: string;
   bio?: string;
-  avatar?: string;
+  avatar_url?: string;
   is_verified?: boolean;
-  is_admin?: boolean;
   created_at?: string;
-}
-
-interface AuthResponse {
-  token: string;
-  user: User;
 }
 
 interface AuthState {
   // State
   user: User | null;
-  token: string | null;
+  session: Session | null;
+  profile: Profile | null;
   status: 'idle' | 'loading' | 'authenticated' | 'guest';
   
   // Actions
   login: (email: string, password: string) => Promise<boolean>;
-  register: (username: string, email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  hydrate: () => Promise<void>;
+  register: (email: string, password: string, username?: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  initialize: () => void;
   setUser: (user: User | null) => void;
-  setToken: (token: string | null) => void;
+  setSession: (session: Session | null) => void;
+  setProfile: (profile: Profile | null) => void;
 }
 
 // ===================================================================
-// Zustand Store dengan persistence
+// Zustand Store dengan Supabase Authentication
 // ===================================================================
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       // Initial state
       user: null,
-      token: null,
+      session: null,
+      profile: null,
       status: 'idle',
 
       // ===================================================================
-      // LOGIN: Email + Password → Token + User
+      // INITIALIZE: Setup Supabase auth listener
+      // ===================================================================
+      initialize: () => {
+        // Set up auth state listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('[Auth] State change:', event, session?.user?.email);
+            
+            set({ session, user: session?.user ?? null });
+            
+            if (session?.user) {
+              // Fetch or create profile
+              setTimeout(async () => {
+                try {
+                  const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .single();
+                  
+                  set({ profile, status: 'authenticated' });
+                } catch (error) {
+                  console.error('[Auth] Error fetching profile:', error);
+                  set({ status: 'authenticated' });
+                }
+              }, 0);
+            } else {
+              set({ profile: null, status: 'guest' });
+            }
+          }
+        );
+
+        // Check for existing session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          set({ session, user: session?.user ?? null });
+          if (session?.user) {
+            set({ status: 'authenticated' });
+          } else {
+            set({ status: 'guest' });
+          }
+        });
+
+        // Store subscription for cleanup
+        (window as any).__supabase_auth_subscription = subscription;
+      },
+
+      // ===================================================================
+      // LOGIN: Email + Password dengan Supabase
       // ===================================================================
       login: async (email: string, password: string) => {
         set({ status: 'loading' });
         
         try {
-          const response = await authApi.login({ email, password });
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+          });
           
-          if (response.ok && response.data) {
-            const authData = response.data as AuthResponse;
-            const { token, user } = authData;
-            
-            // Ensure user data has safe defaults
-            const safeUser = {
-              id: user?.id || 0,
-              username: user?.username || '',
-              email: user?.email || '',
-              display_name: user?.display_name || 'Unknown User',
-              bio: user?.bio || null,
-              avatar: user?.avatar || null,
-              is_verified: Boolean(user?.is_verified),
-              is_admin: Boolean(user?.is_admin),
-              created_at: user?.created_at || new Date().toISOString(),
-            };
-            
-            // Save token dan user
+          if (error) throw error;
+          
+          if (data.user && data.session) {
             set({ 
-              token, 
-              user: safeUser, 
-              status: 'authenticated' 
+              user: data.user,
+              session: data.session,
+              status: 'authenticated'
             });
-            
-            // Save token ke localStorage juga (untuk compatibility)
-            localStorage.setItem('arn_token', token);
             
             toast({
               title: "Selamat datang!",
-              description: `Halo ${safeUser.display_name || safeUser.username}! Selamat datang di ARNVERSE`,
+              description: `Halo ${data.user.email}! Selamat datang di ARNVERSE`,
             });
             
             return true;
-          } else {
-            throw new Error(response.error || 'Login gagal');
           }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Network error';
+          
+          throw new Error('Login gagal');
+        } catch (error: any) {
+          const errorMsg = error.message || 'Login gagal';
           
           set({ status: 'guest' });
           
@@ -113,38 +143,49 @@ export const useAuthStore = create<AuthState>()(
       },
 
       // ===================================================================
-      // REGISTER: Username + Email + Password → Auto Login
+      // REGISTER: Email + Password dengan Supabase
       // ===================================================================
-      register: async (username: string, email: string, password: string) => {
+      register: async (email: string, password: string, username?: string) => {
         set({ status: 'loading' });
         
         try {
-          const response = await authApi.register({ username, email, password });
+          const redirectUrl = `${window.location.origin}/`;
           
-          if (response.ok && response.data) {
-            const authData = response.data as AuthResponse;
-            const { token, user } = authData;
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: redirectUrl,
+              data: {
+                username: username || email.split('@')[0],
+                display_name: username || email.split('@')[0]
+              }
+            }
+          });
+          
+          if (error) throw error;
+          
+          if (data.user) {
+            // Check if email confirmation is required
+            if (!data.session) {
+              toast({
+                title: "Registrasi berhasil!",
+                description: "Silakan cek email Anda untuk konfirmasi akun.",
+              });
+            } else {
+              toast({
+                title: "Akun berhasil dibuat!",
+                description: `Selamat datang di ARNVERSE!`,
+              });
+            }
             
-            // Auto login setelah register
-            set({ 
-              token, 
-              user, 
-              status: 'authenticated' 
-            });
-            
-            localStorage.setItem('arn_token', token);
-            
-            toast({
-              title: "Akun berhasil dibuat!",
-              description: `Selamat datang di ARNVERSE, ${user.display_name || user.username}!`,
-            });
-            
+            set({ status: 'guest' });
             return true;
-          } else {
-            throw new Error(response.error || 'Registrasi gagal');
           }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Network error';
+          
+          throw new Error('Registrasi gagal');
+        } catch (error: any) {
+          const errorMsg = error.message || 'Registrasi gagal';
           
           set({ status: 'guest' });
           
@@ -159,84 +200,25 @@ export const useAuthStore = create<AuthState>()(
       },
 
       // ===================================================================
-      // LOGOUT: Hapus token dan user
+      // LOGOUT: Supabase logout
       // ===================================================================
-      logout: () => {
-        // Hapus dari state
-        set({ 
-          user: null, 
-          token: null, 
-          status: 'guest' 
-        });
-        
-        // Hapus dari localStorage
-        localStorage.removeItem('arn_token');
-        
-        // Call API logout (opsional, tidak perlu await)
-        authApi.logout().catch(() => {
-          // Ignore error, kita sudah clear client state
-        });
-        
-        toast({
-          title: "Logout berhasil",
-          description: "Sampai jumpa lagi di ARNVERSE!",
-        });
-      },
-
-      // ===================================================================
-      // HYDRATE: Restore session dari localStorage saat app load
-      // ===================================================================
-      hydrate: async () => {
-        const currentToken = get().token || localStorage.getItem('arn_token');
-        
-        if (!currentToken) {
-          set({ status: 'guest' });
-          return;
-        }
-        
-        set({ status: 'loading', token: currentToken });
-        
+      logout: async () => {
         try {
-          const response = await authApi.me();
+          await supabase.auth.signOut();
           
-          if (response.ok && response.data && typeof response.data === 'object' && 'user' in response.data) {
-            const userData = (response.data as { user: User }).user;
-            
-            // Ensure user data has safe defaults
-            const safeUser = {
-              id: userData?.id || 0,
-              username: userData?.username || '',
-              email: userData?.email || '',
-              display_name: userData?.display_name || 'Unknown User',
-              bio: userData?.bio || null,
-              avatar: userData?.avatar || null,
-              is_verified: Boolean(userData?.is_verified),
-              is_admin: Boolean(userData?.is_admin),
-              created_at: userData?.created_at || new Date().toISOString(),
-            };
-            
-            set({ 
-              user: safeUser, 
-              token: currentToken,
-              status: 'authenticated' 
-            });
-          } else {
-            // Token invalid, clear state
-            set({ 
-              user: null, 
-              token: null, 
-              status: 'guest' 
-            });
-            localStorage.removeItem('arn_token');
-          }
-        } catch (error) {
-          // Network error atau token invalid
           set({ 
             user: null, 
-            token: null, 
+            session: null,
+            profile: null,
             status: 'guest' 
           });
-          localStorage.removeItem('arn_token');
+          
+          toast({
+            title: "Logout berhasil",
+            description: "Sampai jumpa lagi di ARNVERSE!",
+          });
+        } catch (error) {
+          console.error('[Auth] Logout error:', error);
         }
       },
 
@@ -244,14 +226,13 @@ export const useAuthStore = create<AuthState>()(
       // Utility setters
       // ===================================================================
       setUser: (user: User | null) => set({ user }),
-      setToken: (token: string | null) => set({ token }),
+      setSession: (session: Session | null) => set({ session }),
+      setProfile: (profile: Profile | null) => set({ profile }),
     }),
     {
       name: 'arnverse-auth', // localStorage key
-      // Hanya persist token, user akan di-fetch ulang via hydrate
-      partialize: (state) => ({ 
-        token: state.token 
-      }),
+      // Don't persist anything - let Supabase handle session persistence
+      partialize: () => ({}),
     }
   )
 );

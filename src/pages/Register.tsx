@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Eye, EyeOff, Check, X } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
@@ -13,21 +13,42 @@ export default function Register() {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
-    displayName: "",
     password: "",
     confirmPassword: ""
   });
+  const [passwordError, setPasswordError] = useState("");
   
   const { register, isRegisterPending } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Reset password error
+    setPasswordError("");
+    
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
+      setPasswordError("Passwords do not match");
       return;
     }
     
-    const { confirmPassword, ...registerData } = formData;
-    register(registerData);
+    // Validate password strength
+    if (formData.password.length < 6) {
+      setPasswordError("Password must be at least 6 characters long");
+      return;
+    }
+    
+    const success = await register({
+      username: formData.username,
+      email: formData.email,
+      password: formData.password
+    });
+    
+    if (success) {
+      // Redirect to login after successful registration
+      navigate('/login');
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,10 +56,12 @@ export default function Register() {
       ...prev,
       [e.target.name]: e.target.value
     }));
+    
+    // Clear password error when user types
+    if (e.target.name === 'password' || e.target.name === 'confirmPassword') {
+      setPasswordError("");
+    }
   };
-
-  const passwordsMatch = formData.password === formData.confirmPassword;
-  const passwordValid = formData.password.length >= 6;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 cosmic-bg">
@@ -54,26 +77,12 @@ export default function Register() {
           <CardHeader className="text-center">
             <CardTitle>Create Account</CardTitle>
             <CardDescription>
-              Start your journey in the ARNVERSE
+              Sign up to start your journey in the cosmos
             </CardDescription>
           </CardHeader>
           
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Display Name</Label>
-                <Input
-                  id="displayName"
-                  name="displayName"
-                  type="text"
-                  placeholder="Your display name"
-                  value={formData.displayName}
-                  onChange={handleChange}
-                  required
-                  className="glass"
-                />
-              </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
                 <Input
@@ -85,6 +94,7 @@ export default function Register() {
                   onChange={handleChange}
                   required
                   className="glass"
+                  minLength={3}
                 />
               </div>
               
@@ -94,7 +104,7 @@ export default function Register() {
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="your@email.com"
+                  placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleChange}
                   required
@@ -114,6 +124,7 @@ export default function Register() {
                     onChange={handleChange}
                     required
                     className="glass pr-10"
+                    minLength={6}
                   />
                   <Button
                     type="button"
@@ -129,18 +140,6 @@ export default function Register() {
                     )}
                   </Button>
                 </div>
-                {formData.password && (
-                  <div className="flex items-center gap-2 text-sm">
-                    {passwordValid ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <X className="h-4 w-4 text-red-500" />
-                    )}
-                    <span className={passwordValid ? "text-green-500" : "text-red-500"}>
-                      At least 6 characters
-                    </span>
-                  </div>
-                )}
               </div>
               
               <div className="space-y-2">
@@ -155,6 +154,7 @@ export default function Register() {
                     onChange={handleChange}
                     required
                     className="glass pr-10"
+                    minLength={6}
                   />
                   <Button
                     type="button"
@@ -170,19 +170,11 @@ export default function Register() {
                     )}
                   </Button>
                 </div>
-                {formData.confirmPassword && (
-                  <div className="flex items-center gap-2 text-sm">
-                    {passwordsMatch ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <X className="h-4 w-4 text-red-500" />
-                    )}
-                    <span className={passwordsMatch ? "text-green-500" : "text-red-500"}>
-                      Passwords match
-                    </span>
-                  </div>
-                )}
               </div>
+              
+              {passwordError && (
+                <p className="text-sm text-destructive">{passwordError}</p>
+              )}
             </CardContent>
             
             <CardFooter className="flex flex-col space-y-4">
@@ -190,7 +182,7 @@ export default function Register() {
                 type="submit" 
                 variant="cosmic" 
                 className="w-full"
-                disabled={isRegisterPending || !passwordValid || !passwordsMatch}
+                disabled={isRegisterPending}
               >
                 {isRegisterPending ? (
                   <>
@@ -211,6 +203,14 @@ export default function Register() {
                   Sign in
                 </Link>
               </div>
+              
+              <Link 
+                to="/login"
+                className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary story-link"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Login
+              </Link>
             </CardFooter>
           </form>
         </Card>

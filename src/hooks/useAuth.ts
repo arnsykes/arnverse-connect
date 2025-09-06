@@ -1,28 +1,38 @@
 import { useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+
+// Extended user interface for backward compatibility
+interface ExtendedUser extends SupabaseUser {
+  username?: string;
+  display_name?: string;
+  bio?: string;
+  avatar?: string;
+  is_verified?: boolean;
+}
 
 // ===================================================================
-// useAuth Hook - Interface ke Auth Store
-// Simplified hook yang menggunakan Zustand store
+// useAuth Hook - Interface ke Auth Store dengan Supabase
 // ===================================================================
 
 export function useAuth() {
   const {
     user,
-    token,
+    session,
+    profile,
     status,
     login: loginAction,
     register: registerAction,
     logout: logoutAction,
-    hydrate,
+    initialize,
   } = useAuthStore();
 
-  // Auto-hydrate saat hook pertama kali digunakan
+  // Auto-initialize Supabase auth listener saat hook pertama kali digunakan
   useEffect(() => {
     if (status === 'idle') {
-      hydrate();
+      initialize();
     }
-  }, [status, hydrate]);
+  }, [status, initialize]);
 
   // Computed values
   const isAuthenticated = status === 'authenticated' && !!user;
@@ -35,21 +45,32 @@ export function useAuth() {
   };
 
   const register = async (userData: { 
-    username: string; 
+    username?: string; 
     email: string; 
     password: string; 
   }) => {
-    return await registerAction(userData.username, userData.email, userData.password);
+    return await registerAction(userData.email, userData.password, userData.username);
   };
 
-  const logout = () => {
-    logoutAction();
+  const logout = async () => {
+    await logoutAction();
   };
+
+  // Create a merged user object for backward compatibility with any type
+  const mergedUser = user && profile ? {
+    ...user,
+    username: profile.username,
+    display_name: profile.display_name,
+    bio: profile.bio || undefined,
+    avatar: profile.avatar_url || undefined,
+    is_verified: profile.is_verified || false
+  } : (user as any);
 
   return {
-    // State
-    user,
-    token,
+    // State - use merged user for backward compatibility
+    user: mergedUser,
+    session,
+    profile,
     isAuthenticated,
     isLoading,
     isGuest,
