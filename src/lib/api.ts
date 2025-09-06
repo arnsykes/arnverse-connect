@@ -297,8 +297,8 @@ export const storiesApi = {
   // GET /api/stories.php - ambil daftar stories yang aktif
   getStories: () => apiRequest('/stories.php'),
   
-  // POST /api/upload_story.php - upload story baru (form-data untuk media)
-  upload: (formData: FormData) => uploadRequest('/upload_story.php', formData),
+  // POST /api/stories.php - upload story baru (form-data untuk media)
+  upload: (formData: FormData) => uploadRequest('/stories.php', formData),
   
   // POST /api/story_like.php - like story (opsional)
   like: (storyId: string) =>

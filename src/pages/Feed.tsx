@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FeedCard } from "@/components/feed/FeedCard";
 import { StoryBubble } from "@/components/stories/StoryBubble";
 import { StoryViewer } from "@/components/stories/StoryViewer";
+import { CreateStory } from "@/components/stories/CreateStory";
 import { CreatePost } from "@/components/CreatePost";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +14,7 @@ import { RefreshCw, Plus } from "lucide-react";
 export default function Feed() {
   const { user } = useAuth();
   const [selectedStoryIndex, setSelectedStoryIndex] = useState<number | null>(null);
+  const [showCreateStory, setShowCreateStory] = useState(false);
   
   const { 
     posts, 
@@ -42,9 +44,7 @@ export default function Feed() {
   };
 
   const handleAddStory = () => {
-    // This would open a story creation modal
-    // For now, just show a placeholder
-    console.log("Add story clicked");
+    setShowCreateStory(true);
   };
 
   const closeStoryViewer = () => {
@@ -187,6 +187,12 @@ export default function Feed() {
           onClose={closeStoryViewer}
         />
       )}
+
+      {/* Create Story Modal */}
+      <CreateStory 
+        open={showCreateStory} 
+        onOpenChange={setShowCreateStory} 
+      />
     </div>
   );
 }
